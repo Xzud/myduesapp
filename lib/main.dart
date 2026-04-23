@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:myduesapp/features/overview/overview.dart';
+import 'package:myduesapp/screens/overview.dart';
 
 void main() {
   runApp(const MyApp());
