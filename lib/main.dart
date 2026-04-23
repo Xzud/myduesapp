@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:myduesapp/features/overview/overview.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +32,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
       home: const MyHomePage(title: 'MyDues'),
+      routes: {'/overview': (context) => OverviewPage()},
     );
   }
 }
@@ -104,6 +106,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 //   context,
                 //   MaterialPageRoute(builder: (context) => OverviewPage()),
                 // );
+                Navigator.pushNamed(context, '/overview');
               },
             ),
           ],
