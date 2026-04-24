@@ -1,3 +1,4 @@
+import 'package:myduesapp/%20models/due_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -35,5 +36,62 @@ class DatabaseHelper {
         UPDATED_AT TEXT DEFAULT CURRENT_TIMESTAMP
       )
     ''');
+  }
+
+  Future<List<Map<String, dynamic>>> getDues() async {
+    final db = await database;
+
+    var result = await db.query('dues');
+
+    List<Map<String, dynamic>> dues = [];
+
+    if (result.isEmpty) {
+      print('No dues found');
+      return [];
+    }
+
+    for (var item in result) {
+      DueModel currentDue = DueModel.fromMap(item);
+
+      if (dues.isEmpty) {
+        dues.add({
+          'month': currentDue.getMonthYear(),
+          'dues': [
+            {
+              'name': currentDue.name,
+              'price': currentDue.amount,
+              'paid': currentDue.paid,
+            },
+          ],
+        });
+        continue;
+      } else {
+        for (var due in dues) {
+          if (due['month'] == currentDue.getMonthYear()) {
+            due['dues'].add({
+              'name': currentDue.name,
+              'price': currentDue.amount,
+              'paid': currentDue.paid,
+            });
+            break;
+          } else {
+            dues.add({
+              'month': currentDue.getMonthYear(),
+              'dues': [
+                {
+                  'name': currentDue.name,
+                  'price': currentDue.amount,
+                  'paid': currentDue.paid,
+                },
+              ],
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    print(result);
+    return dues;
   }
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:myduesapp/%20models/due_model.dart';
+import 'package:myduesapp/core/database_helper.dart';
 import 'package:myduesapp/screens/overview.dart';
+import 'package:sqflite/sqflite.dart';
 
 void main() {
   runApp(const MyApp());
@@ -56,18 +59,20 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  bool _isChecked = false;
+  final DueModel due = DueModel(
+    name: '',
+    amount: 0,
+    recurring: false,
+    recurringInterval: 0,
+    dayOfMonth: 0,
+    paid: false,
+    complete: false,
+  );
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  void submitDue() async {
+    final db = await DatabaseHelper.instance.database;
+
+    due.create(db);
   }
 
   @override
@@ -152,6 +157,11 @@ class _MyHomePageState extends State<MyHomePage> {
                   spacing: 8,
                   children: [
                     TextField(
+                      onChanged: (value) {
+                        setState(() {
+                          due.name = value;
+                        });
+                      },
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         labelText: 'Title',
@@ -160,6 +170,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     TextField(
+                      onChanged: (value) {
+                        setState(() {
+                          due.amount = double.parse(value);
+                        });
+                      },
+                      keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         labelText: 'Amount',
@@ -168,6 +184,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     TextField(
+                      onChanged: (value) {
+                        setState(() {
+                          due.dayOfMonth = int.parse(value);
+                        });
+                      },
+                      keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         labelText: 'Date',
@@ -178,18 +200,24 @@ class _MyHomePageState extends State<MyHomePage> {
                     GestureDetector(
                       onTap: () {
                         setState(() {
-                          _isChecked = !_isChecked;
+                          due.recurring = !due.recurring;
                         });
                       },
                       child: Row(
                         children: [
-                          Checkbox(value: _isChecked, onChanged: null),
+                          Checkbox(value: due.recurring, onChanged: null),
                           const Text("Recurring"),
                         ],
                       ),
                     ),
-                    if (_isChecked)
+                    if (due.recurring)
                       TextField(
+                        onChanged: (value) {
+                          setState(() {
+                            due.recurringInterval = int.parse(value);
+                          });
+                        },
+                        keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           labelText: 'Recurring',
@@ -199,7 +227,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ElevatedButton(
                       onPressed: () {
-                        // Add your onPressed code here!
+                        submitDue();
+                        Navigator.pushNamed(context, '/overview');
                       },
                       child: const Text('Submit'),
                     ),
@@ -210,11 +239,11 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: _incrementCounter,
+      //   tooltip: 'Increment',
+      //   child: const Icon(Icons.add),
+      // ),
     );
   }
 }
