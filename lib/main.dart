@@ -59,15 +59,37 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final DueModel due = DueModel(
-    name: '',
-    amount: 0,
-    recurring: false,
-    recurringInterval: 0,
-    dayOfMonth: 0,
-    paid: false,
-    complete: false,
-  );
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _intervalController = TextEditingController();
+
+  late DueModel due;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetForm(); // Clear form on initial load
+  }
+
+  void _resetForm() {
+    setState(() {
+      _nameController.clear();
+      _amountController.clear();
+      _dateController.clear();
+      _intervalController.clear();
+
+      due = DueModel(
+        name: '',
+        amount: 0,
+        recurring: false,
+        recurringInterval: 0,
+        dayOfMonth: 0,
+        paid: false,
+        complete: false,
+      );
+    });
+  }
 
   void submitDue() async {
     final db = await DatabaseHelper.instance.database;
@@ -157,11 +179,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   spacing: 8,
                   children: [
                     TextField(
-                      onChanged: (value) {
-                        setState(() {
-                          due.name = value;
-                        });
-                      },
+                      controller: _nameController, // Bind controller
+                      onChanged: (value) => due.name = value,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         labelText: 'Title',
@@ -170,11 +189,9 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     TextField(
-                      onChanged: (value) {
-                        setState(() {
-                          due.amount = double.parse(value);
-                        });
-                      },
+                      controller: _amountController,
+                      onChanged: (value) =>
+                          due.amount = double.tryParse(value) ?? 0,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
@@ -184,11 +201,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     TextField(
-                      onChanged: (value) {
-                        setState(() {
-                          due.dayOfMonth = int.parse(value);
-                        });
-                      },
+                      controller: _dateController,
+                      onChanged: (value) => due.dayOfMonth = int.parse(value),
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
@@ -212,11 +226,9 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     if (due.recurring)
                       TextField(
-                        onChanged: (value) {
-                          setState(() {
-                            due.recurringInterval = int.parse(value);
-                          });
-                        },
+                        controller: _intervalController,
+                        onChanged: (value) =>
+                            due.recurringInterval = int.parse(value),
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
@@ -225,12 +237,30 @@ class _MyHomePageState extends State<MyHomePage> {
                           hintStyle: TextStyle(color: Colors.grey),
                         ),
                       ),
-                    ElevatedButton(
-                      onPressed: () {
-                        submitDue();
-                        Navigator.pushNamed(context, '/overview');
-                      },
-                      child: const Text('Submit'),
+                    Row(
+                      spacing: 10,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            _resetForm();
+                          },
+                          child: const Text('Clear'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                          ),
+                          onPressed: () {
+                            submitDue();
+                            Navigator.pushNamed(context, '/overview');
+                          },
+                          child: const Text(
+                            'Submit',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
