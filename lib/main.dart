@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:myduesapp/%20models/due_model.dart';
-import 'package:myduesapp/core/database_helper.dart';
-import 'package:myduesapp/screens/overview.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:myduesapp/features/dues/data/%20models/due_model.dart';
+import 'package:myduesapp/core/database/database_helper.dart';
 
-void main() {
+import 'package:myduesapp/features/dues/presentation/pages/dues.dart';
+import 'package:myduesapp/features/dues/presentation/pages/settings.dart';
+import 'package:myduesapp/injection_container.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await init();
+
   runApp(const MyApp());
 }
 
@@ -35,7 +41,10 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
       home: const MyHomePage(title: 'MyDues'),
-      routes: {'/overview': (context) => OverviewPage()},
+      routes: {
+        '/dues': (context) => DuesPage(),
+        '/settings': (context) => SettingsPage(),
+      },
     );
   }
 }
@@ -134,6 +143,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 //   MaterialPageRoute(builder: (context) => OverviewPage()),
                 // );
                 Navigator.pushNamed(context, '/overview');
+              },
+            ),
+            ListTile(
+              title: Text('Settings'),
+              onTap: () {
+                Navigator.pop(context);
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(builder: (context) => SettingsPage()),
+                // );
+                Navigator.pushNamed(context, '/settings');
               },
             ),
           ],

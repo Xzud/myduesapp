@@ -1,26 +1,18 @@
-class DueModel {
-  int? id;
-  String name;
-  double amount;
-  bool recurring = false;
-  int recurringInterval = 1;
-  int dayOfMonth;
-  bool paid = false;
-  bool complete = false;
-  String? createdAt = DateTime.now().toString();
-  String? updatedAt = DateTime.now().toString();
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+
+class DueModel extends DueEntity {
 
   DueModel({
-    this.id,
-    required this.name,
-    required this.amount,
-    this.recurring = false,
-    this.recurringInterval = 1,
-    required this.dayOfMonth,
-    this.paid = false,
-    this.complete = false,
-    this.createdAt,
-    this.updatedAt,
+    super.id,
+    required super.name,
+    required super.amount,
+    super.recurring = false,
+    super.recurringInterval = 1,
+    required super.dayOfMonth,
+    super.paid = false,
+    super.complete = false,
+    super.createdAt,
+    super.updatedAt,
   });
 
   factory DueModel.fromMap(Map<String, dynamic> map) {
@@ -84,5 +76,20 @@ class DueModel {
     DateTime now = DateTime.parse(createdAt ?? DateTime.now().toString());
     String monthYear = "${months[now.month]} ${now.year}";
     return monthYear;
+  }
+
+  DueEntity toEntity() {
+    return DueEntity(
+      id: id,
+      name: name,
+      amount: amount,
+      recurring: recurring,
+      recurringInterval: recurringInterval,
+      dayOfMonth: dayOfMonth,
+      paid: paid,
+      complete: complete,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
   }
 }

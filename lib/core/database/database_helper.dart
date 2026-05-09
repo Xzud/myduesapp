@@ -1,4 +1,5 @@
-import 'package:myduesapp/%20models/due_model.dart';
+import 'package:myduesapp/features/dues/data/%20models/due_model.dart';
+import 'package:myduesapp/features/dues/data/%20models/duedate_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -34,6 +35,11 @@ class DatabaseHelper {
         complete INTEGER DEFAULT 0,
         CREATED_AT TEXT DEFAULT CURRENT_TIMESTAMP,
         UPDATED_AT TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+
+      CREATE TABLE payment_dates(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date_of_month INTEGER
       )
     ''');
   }
@@ -93,5 +99,29 @@ class DatabaseHelper {
 
     print(result);
     return dues;
+  }
+
+  Future<List<String>> getPaymentDates() async {
+    final db = await database;
+
+    var result = await db.query('payment_dates');
+
+    List<String> paymentDates = [];
+
+    if (result.isEmpty) {
+      print('No dues found');
+      return [];
+    }
+
+    for (var item in result) {
+      DuedateModel dueDate = DuedateModel.fromMap(item);
+      String monthYear = dueDate.dayOfMonth;
+      if (!paymentDates.contains(monthYear)) {
+        paymentDates.add(monthYear);
+      }
+    }
+
+    print(paymentDates);
+    return paymentDates;
   }
 }

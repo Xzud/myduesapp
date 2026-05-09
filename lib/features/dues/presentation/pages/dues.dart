@@ -1,37 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:myduesapp/core/database_helper.dart';
+import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
+import 'package:myduesapp/injection_container.dart';
 
-class OverviewPage extends StatefulWidget {
-  const OverviewPage({super.key});
+class DuesPage extends StatefulWidget {
+  const DuesPage({super.key});
 
   @override
-  State<OverviewPage> createState() => _OverviewPageState();
+  State<DuesPage> createState() => _DuesPageState();
 }
 
-class _OverviewPageState extends State<OverviewPage> {
-  final Future<List<Map<String, dynamic>>> _duesFuture = DatabaseHelper.instance
-      .getDues();
+class _DuesPageState extends State<DuesPage> {
+  final controller = sl<DueController>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Overview')),
-      body: FutureBuilder(
-        future: _duesFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      appBar: AppBar(title: Text('Dues')),
+      body: ListenableBuilder(
+        listenable: controller,
+        builder: (context, child) {
+          if (controller.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+          if (controller.errorMessage != null) {
+            return Center(child: Text('Error: ${controller.errorMessage}'));
           }
 
-          final dues = snapshot.data ?? [];
+          final dues = controller.dues;
 
           bool checkComplete(due) {
-            for (var item in due['dues']) {
-              if (!item['paid']) {
+            for (var item in due.dues) {
+              if (!item.paid) {
                 return false;
               }
             }
@@ -50,7 +50,7 @@ class _OverviewPageState extends State<OverviewPage> {
                     Column(
                       children: [
                         Text(
-                          due['month'],
+                          due.month,
                           textAlign: TextAlign.left,
                           style: TextStyle(
                             fontSize: 20,
@@ -61,21 +61,21 @@ class _OverviewPageState extends State<OverviewPage> {
                           padding: EdgeInsets.all(10),
                           child: Column(
                             children: [
-                              for (var item in due['dues'])
+                              for (var item in due.dues)
                                 CheckboxListTile(
                                   title: Text(
-                                    '${item['name']} - Php ${item['price']}',
+                                    '${item.name} - Php ${item.price}',
                                     style: TextStyle(
                                       fontSize: 14,
-                                      decoration: item['paid']
+                                      decoration: item.paid
                                           ? TextDecoration.lineThrough
                                           : TextDecoration.none,
                                     ),
                                   ),
-                                  value: item['paid'],
+                                  value: item.paid,
                                   onChanged: (bool? value) {
                                     setState(() {
-                                      item['paid'] = value ?? false;
+                                      item.paid = value ?? false;
                                     });
                                   },
                                 ),
