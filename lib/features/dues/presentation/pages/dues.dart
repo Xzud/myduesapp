@@ -10,7 +10,15 @@ class DuesPage extends StatefulWidget {
 }
 
 class _DuesPageState extends State<DuesPage> {
-  final controller = sl<DueController>();
+  late final DueController controller;
+  @override
+  void initState() {
+    super.initState();
+
+    controller = sl<DueController>();
+
+    controller.fetchDues();
+  }
 
   @override
   Widget build(BuildContext context) {

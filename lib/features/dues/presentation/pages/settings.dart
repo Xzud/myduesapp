@@ -10,6 +10,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   List<String> paymentDates = [];
   String dateInput = '';
+  //TODO use controllers
 
   @override
   Widget build(BuildContext context) {
