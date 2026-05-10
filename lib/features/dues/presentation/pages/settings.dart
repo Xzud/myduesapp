@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
+import 'package:myduesapp/injection_container.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -8,9 +10,15 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  List<String> paymentDates = [];
-  String dateInput = '';
-  //TODO use controllers
+  late final DueFormController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = sl<DueFormController>();
+
+    controller.fetchPaymentDates();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +44,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (value) {
-                      dateInput = value;
+                      controller.updateDateInput(value);
                     },
                   ),
                 ),
@@ -44,9 +52,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                   onPressed: () {
                     // Add the entered payment date to the list
-                    setState(() {
-                      paymentDates.add(dateInput);
-                    });
+                    controller.addPaymentDate();
                   },
                   child: const Text(
                     'Add',
@@ -60,7 +66,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 spacing: 5,
                 children: [
-                  for (var date in paymentDates.asMap().entries)
+                  for (var date in controller.paymentDates.asMap().entries)
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(5),
@@ -79,9 +85,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             IconButton(
                               icon: Icon(Icons.delete, color: Colors.red),
                               onPressed: () {
-                                setState(() {
-                                  paymentDates.removeAt(date.key);
-                                });
+                                controller.removePaymentDate(date.key);
                               },
                             ),
                           ],
