@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
+import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
 import 'package:myduesapp/injection_container.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -10,12 +10,12 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late final DueFormController controller;
+  late final SettingsController controller;
 
   @override
   void initState() {
     super.initState();
-    controller = sl<DueFormController>();
+    controller = sl<SettingsController>();
 
     controller.fetchPaymentDates();
   }

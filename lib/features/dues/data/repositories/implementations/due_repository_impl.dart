@@ -1,4 +1,4 @@
-import 'package:myduesapp/features/dues/data/%20models/due_model.dart';
+import 'package:myduesapp/features/dues/data/models/due_model.dart';
 import 'package:myduesapp/features/dues/data/datasources/due_datasource.dart';
 import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
 
