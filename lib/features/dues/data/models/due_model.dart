@@ -1,7 +1,6 @@
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 
 class DueModel extends DueEntity {
-
   DueModel({
     super.id,
     required super.name,
@@ -30,7 +29,7 @@ class DueModel extends DueEntity {
     );
   }
 
-  Map<String, dynamic> toMap(String? createdAt) {
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
@@ -41,16 +40,16 @@ class DueModel extends DueEntity {
       'paid': paid ? 1 : 0,
       'complete': complete ? 1 : 0,
       'created_at': createdAt,
-      'updated_at': DateTime.now().toString(),
+      'updated_at': updatedAt,
     };
   }
 
   void create(dynamic db) async {
-    await db.insert('dues', toMap(createdAt));
+    await db.insert('dues', toMap());
   }
 
   void update(dynamic db) async {
-    await db.update('dues', toMap(null));
+    await db.update('dues', toMap(), where: 'id = ?', whereArgs: [id]);
   }
 
   void delete(dynamic db) async {

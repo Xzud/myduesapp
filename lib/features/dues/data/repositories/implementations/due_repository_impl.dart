@@ -11,4 +11,10 @@ class DueRepositoryImpl implements DueRepository {
   Future<List<DueModel>> getDues() async {
     return await datasource.getDues();
   }
+
+
+  @override
+  Future<void> createDue(DueModel due) async {
+    await datasource.createDue(due);
+  }
 }

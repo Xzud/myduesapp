@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 abstract class DueDatasource {
   Future<List<DueModel>> getDues();
+  Future<void> createDue(DueModel due);
 }
 
 class DueDatasourceImpl implements DueDatasource {
@@ -25,9 +26,14 @@ class DueDatasourceImpl implements DueDatasource {
 
     for (var item in result) {
       DueModel currentDue = DueModel.fromMap(item);
-      
+
       dues.add(currentDue);
     }
     return dues;
+  }
+
+  @override
+  Future<void> createDue(DueModel due) async {
+    await database.insert('dues', due.toMap());
   }
 }

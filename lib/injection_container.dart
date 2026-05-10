@@ -7,10 +7,12 @@ import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
 import 'package:myduesapp/features/dues/data/repositories/implementations/due_repository_impl.dart';
 import 'package:myduesapp/features/dues/data/repositories/implementations/settings_repository_impl.dart';
 import 'package:myduesapp/features/dues/data/repositories/settings_repository.dart';
+import 'package:myduesapp/features/dues/domain/usecases/create_due.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
+import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
 import 'package:sqflite/sqflite.dart';
 
 final sl = GetIt.instance;
@@ -40,8 +42,10 @@ Future<void> init() async {
   sl.registerLazySingleton<GetPaymentDates>(
     () => GetPaymentDates(repository: sl()),
   );
+  sl.registerLazySingleton<CreateDue>(() => CreateDue(repository: sl()));
 
   // CONTROLLERs
   sl.registerFactory(() => DueController(getAllDues: sl()));
-  sl.registerFactory(() => DueFormController(getPaymentDates: sl()));
+  sl.registerFactory(() => DueFormController(getPaymentDates: sl(), createDueUseCase: sl()));
+  sl.registerFactory(() => SettingsController(getPaymentDates: sl()));
 }

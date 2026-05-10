@@ -1,9 +1,8 @@
-
 import 'package:flutter/material.dart';
 
 import 'package:myduesapp/features/dues/data/models/due_model.dart';
-import 'package:myduesapp/core/database/database_helper.dart';
-
+import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
+import 'package:myduesapp/injection_container.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -24,6 +23,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  late final DueFormController controller;
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
@@ -34,6 +35,9 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+
+    controller = sl<DueFormController>();
+
     _resetForm(); // Clear form on initial load
   }
 
@@ -57,9 +61,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void submitDue() async {
-    final db = await DatabaseHelper.instance.database;
-
-    due.create(db);
+    await controller.createDue(due);
   }
 
   @override
