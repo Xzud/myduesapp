@@ -212,7 +212,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ],
                       ),
                     ),
-                    if (due.recurring)
+                    if (_isRecurring)
                       TextField(
                         key: const Key('intervalField'),
                         controller: _intervalController,
