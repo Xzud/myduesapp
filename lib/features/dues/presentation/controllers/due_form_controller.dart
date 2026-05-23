@@ -8,7 +8,7 @@ class DueFormController extends ChangeNotifier {
   final GetPaymentDates getPaymentDates;
   final CreateDue createDueUseCase;
 
-  final bool _isLoading = false;
+  bool _isLoading = false;
   bool get isLoading => _isLoading;
 
   String? _errorMessage;
@@ -20,6 +20,8 @@ class DueFormController extends ChangeNotifier {
   });
 
   Future<void> createDue(DueModel due) async {
+    _isLoading = true;
+    notifyListeners();
     try {
       await createDueUseCase(due);
     } catch (e) {
@@ -28,6 +30,7 @@ class DueFormController extends ChangeNotifier {
         print('Error creating due: $e');
       }
     } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }

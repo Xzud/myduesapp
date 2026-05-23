@@ -35,7 +35,7 @@ class DatabaseHelper {
         complete INTEGER DEFAULT 0,
         CREATED_AT TEXT DEFAULT CURRENT_TIMESTAMP,
         UPDATED_AT TEXT DEFAULT CURRENT_TIMESTAMP
-      )
+      );
 
       CREATE TABLE payment_dates(
         id INTEGER PRIMARY KEY AUTOINCREMENT,

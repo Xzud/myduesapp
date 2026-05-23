@@ -29,6 +29,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _intervalController = TextEditingController();
+  bool _isRecurring = false;
 
   late DueModel due;
 
@@ -61,6 +62,16 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void submitDue() async {
+    due = DueModel(
+      name: _nameController.text,
+      amount: double.tryParse(_amountController.text) ?? 0,
+      dayOfMonth: int.tryParse(_dateController.text) ?? 0,
+      recurring: _isRecurring,
+      recurringInterval: _isRecurring
+          ? int.tryParse(_intervalController.text) ?? 0
+          : 0, // Only set if recurring
+    );
+
     await controller.createDue(due);
   }
 
@@ -157,8 +168,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   spacing: 8,
                   children: [
                     TextField(
+                      key: const Key('nameField'),
                       controller: _nameController, // Bind controller
-                      onChanged: (value) => due.name = value,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         labelText: 'Title',
@@ -167,9 +178,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     TextField(
+                      key: const Key('amountField'),
                       controller: _amountController,
-                      onChanged: (value) =>
-                          due.amount = double.tryParse(value) ?? 0,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
@@ -179,8 +189,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     TextField(
+                      key: const Key('dateField'),
                       controller: _dateController,
-                      onChanged: (value) => due.dayOfMonth = int.parse(value),
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
@@ -192,7 +202,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     GestureDetector(
                       onTap: () {
                         setState(() {
-                          due.recurring = !due.recurring;
+                          _isRecurring = !_isRecurring;
                         });
                       },
                       child: Row(
@@ -204,9 +214,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     if (due.recurring)
                       TextField(
+                        key: const Key('intervalField'),
                         controller: _intervalController,
-                        onChanged: (value) =>
-                            due.recurringInterval = int.parse(value),
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
