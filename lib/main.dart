@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
       ),
       home: const MyHomePage(title: 'MyDues'),
       routes: {
-        '/dues': (context) => DuesPage(),
+        '/overview': (context) => DuesPage(),
         '/settings': (context) => SettingsPage(),
       },
     );

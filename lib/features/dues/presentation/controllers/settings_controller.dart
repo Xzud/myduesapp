@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
 
 class SettingsController extends ChangeNotifier {
@@ -13,7 +14,6 @@ class SettingsController extends ChangeNotifier {
   SettingsController({required this.getPaymentDates});
 
   List<String> paymentDates = [];
-  String dateInput = '';
 
   Future<void> fetchPaymentDates() async {
     try {
@@ -28,9 +28,10 @@ class SettingsController extends ChangeNotifier {
     }
   }
 
-  void addPaymentDate() {
+  void addPaymentDate(String dateInput) {
     if (dateInput.isNotEmpty) {
       paymentDates.add(dateInput);
+      // TODO connect to save in database
       dateInput = '';
       notifyListeners();
     }
@@ -38,11 +39,7 @@ class SettingsController extends ChangeNotifier {
 
   void removePaymentDate(int index) {
     paymentDates.removeAt(index);
-    notifyListeners();
-  }
-
-  void updateDateInput(String value) {
-    dateInput = value;
+    // TODO connect to save in database
     notifyListeners();
   }
 }

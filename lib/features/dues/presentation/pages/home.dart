@@ -207,7 +207,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       },
                       child: Row(
                         children: [
-                          Checkbox(value: due.recurring, onChanged: null),
+                          Checkbox(value: _isRecurring, onChanged: null),
                           const Text("Recurring"),
                         ],
                       ),

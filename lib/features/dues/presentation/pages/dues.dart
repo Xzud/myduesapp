@@ -11,6 +11,7 @@ class DuesPage extends StatefulWidget {
 
 class _DuesPageState extends State<DuesPage> {
   late final DueController controller;
+
   @override
   void initState() {
     super.initState();
@@ -57,16 +58,22 @@ class _DuesPageState extends State<DuesPage> {
                   if (!checkComplete(due))
                     Column(
                       children: [
-                        Text(
-                          due.month,
-                          textAlign: TextAlign.left,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(10),
+                          color: Colors.black87,
+                          child: Text(
+                            due.month,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         Padding(
-                          padding: EdgeInsets.all(10),
+                          padding: EdgeInsets.all(8),
                           child: Column(
                             children: [
                               for (var item in due.dues)
