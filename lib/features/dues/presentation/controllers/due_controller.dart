@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart';
-import 'package:myduesapp/features/dues/domain/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 
 class DueController extends ChangeNotifier {
   final GetAllDues getAllDues;

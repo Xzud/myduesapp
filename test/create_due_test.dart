@@ -1,8 +1,8 @@
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myduesapp/features/dues/data/models/due_model.dart';
-import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
-import 'package:myduesapp/features/dues/domain/usecases/create_due.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
+import 'package:myduesapp/features/dues/application/usecases/create_due.dart';
 
 class MockDueRepository extends Mock implements DueRepository {}
 
@@ -12,7 +12,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(
-      DueModel(
+      DueEntity(
         id: 0,
         name: '',
         amount: 0.0,
@@ -33,7 +33,7 @@ void main() {
 
   test('should create a due when called', () async {
     // Arrange
-    final due = DueModel(
+    final due = DueEntity(
       id: 1,
       name: 'Test Due',
       amount: 100.0,
@@ -58,7 +58,7 @@ void main() {
 
   test('should handle errors when creating a due', () async {
     // Arrange
-    final due = DueModel(
+    final due = DueEntity(
       id: 1,
       name: 'Test Due',
       amount: 100.0,

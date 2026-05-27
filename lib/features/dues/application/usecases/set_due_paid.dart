@@ -1,4 +1,4 @@
-import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
+import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
 class SetDuePaid {
   final DueRepository repository;

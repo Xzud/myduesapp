@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
-import 'package:myduesapp/features/dues/domain/usecases/reset_all_data.dart';
-import 'package:myduesapp/features/dues/domain/usecases/set_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_payment_dates.dart';
 
 class SettingsController extends ChangeNotifier {
   final GetPaymentDates getPaymentDates;

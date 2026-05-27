@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myduesapp/features/dues/domain/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
 import 'package:myduesapp/features/dues/presentation/pages/home.dart';
 import 'package:myduesapp/injection_container.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';

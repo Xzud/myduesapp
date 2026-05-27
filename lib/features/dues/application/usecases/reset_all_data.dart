@@ -1,5 +1,5 @@
-import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
-import 'package:myduesapp/features/dues/data/repositories/settings_repository.dart';
+import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
+import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
 
 class ResetAllData {
   final DueRepository dueRepository;

@@ -1,8 +1,8 @@
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myduesapp/features/dues/data/models/due_model.dart';
-import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
-import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 
 class MockDueRepo extends Mock implements DueRepository {}
 
@@ -18,7 +18,7 @@ void main() {
   test('should return a list of dues from the repository', () async {
     // Arrange
     final mockDues = [
-      DueModel(
+      DueEntity(
         id: 1,
         name: 'Electricity Bill',
         amount: 50.0,
@@ -51,7 +51,7 @@ void main() {
   test('should group dues by month correctly', () async {
     // Arrange
     final mockDues = [
-      DueModel(
+      DueEntity(
         id: 1,
         name: 'Electricity Bill',
         amount: 50.0,
@@ -62,7 +62,7 @@ void main() {
         createdAt: '2023-09-15 10:00:00',
         updatedAt: '2023-09-15 10:00:00',
       ),
-      DueModel(
+      DueEntity(
         id: 2,
         name: 'Internet Bill',
         amount: 60.0,
@@ -73,7 +73,7 @@ void main() {
         createdAt: '2023-09-25 14:30:00',
         updatedAt: '2023-09-25 14:30:00',
       ),
-      DueModel(
+      DueEntity(
         id: 3,
         name: 'Rent Payment',
         amount: 1000.0,

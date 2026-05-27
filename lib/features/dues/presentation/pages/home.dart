@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart'
+import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due;
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';

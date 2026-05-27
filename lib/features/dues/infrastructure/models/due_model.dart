@@ -1,7 +1,7 @@
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 
 class DueModel extends DueEntity {
-  DueModel({
+  const DueModel({
     super.id,
     required super.name,
     required super.amount,
@@ -17,6 +17,25 @@ class DueModel extends DueEntity {
     super.createdAt,
     super.updatedAt,
   });
+
+  factory DueModel.fromEntity(DueEntity entity) {
+    return DueModel(
+      id: entity.id,
+      name: entity.name,
+      amount: entity.amount,
+      recurring: entity.recurring,
+      recurringInterval: entity.recurringInterval,
+      dayOfMonth: entity.dayOfMonth,
+      loanId: entity.loanId,
+      installmentIndex: entity.installmentIndex,
+      installmentCount: entity.installmentCount,
+      dueDate: entity.dueDate,
+      paid: entity.paid,
+      complete: entity.complete,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    );
+  }
 
   factory DueModel.fromMap(Map<String, dynamic> map) {
     return DueModel(

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:myduesapp/features/dues/domain/usecases/create_split_due.dart';
-import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 
 class MockCreateSplitDue extends Mock implements CreateSplitDue {}

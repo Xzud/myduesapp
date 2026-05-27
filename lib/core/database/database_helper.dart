@@ -1,4 +1,3 @@
-import 'package:myduesapp/features/dues/data/models/due_model.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -67,11 +66,5 @@ class DatabaseHelper {
         );
       ''');
     }
-  }
-
-  Future<List<DueModel>> getDues() async {
-    final db = await database;
-    final result = await db.query('dues', orderBy: 'due_date ASC, id ASC');
-    return result.map(DueModel.fromMap).toList();
   }
 }

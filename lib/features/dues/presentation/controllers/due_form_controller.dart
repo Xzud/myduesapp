@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:myduesapp/features/dues/domain/usecases/create_split_due.dart';
-import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 
 enum AmountInputMode { principal, monthly }
 

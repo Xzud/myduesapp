@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
-import 'package:myduesapp/features/dues/data/repositories/settings_repository.dart';
-import 'package:myduesapp/features/dues/domain/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
+import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
+import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
 
 class MockDueRepository extends Mock implements DueRepository {}
 

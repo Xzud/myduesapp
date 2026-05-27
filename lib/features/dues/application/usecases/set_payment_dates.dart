@@ -1,4 +1,4 @@
-import 'package:myduesapp/features/dues/data/repositories/settings_repository.dart';
+import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
 
 class SetPaymentDates {
   final SettingsRepository repository;

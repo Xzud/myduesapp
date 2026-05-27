@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
-import 'package:myduesapp/features/dues/domain/usecases/reset_all_data.dart';
-import 'package:myduesapp/features/dues/domain/usecases/set_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_payment_dates.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
 
 class MockGetPaymentDates extends Mock implements GetPaymentDates {}

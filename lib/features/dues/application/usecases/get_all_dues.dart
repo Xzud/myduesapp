@@ -1,4 +1,5 @@
-import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
 class GetAllDues {
   final DueRepository repository;
@@ -14,7 +15,7 @@ class GetAllDues {
     final map = <String, MonthlyDue>{};
 
     for (final currentDue in result) {
-      final key = currentDue.getMonthYear();
+      final key = _getMonthYear(currentDue);
       map.putIfAbsent(key, () => MonthlyDue(month: key, dues: []));
       map[key]!.dues.add(
         Due(
@@ -31,6 +32,36 @@ class GetAllDues {
     }
 
     return map.values.toList();
+  }
+
+  DateTime _effectiveDate(DueEntity due) {
+    if (due.dueDate != null && due.dueDate!.isNotEmpty) {
+      return DateTime.tryParse(due.dueDate!) ?? DateTime.now();
+    }
+    if (due.createdAt != null && due.createdAt!.isNotEmpty) {
+      return DateTime.tryParse(due.createdAt!) ?? DateTime.now();
+    }
+    return DateTime.now();
+  }
+
+  String _getMonthYear(DueEntity due) {
+    const months = [
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final effectiveDate = _effectiveDate(due);
+    return '${months[effectiveDate.month]} ${effectiveDate.year}';
   }
 }
 

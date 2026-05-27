@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:myduesapp/features/dues/data/models/due_model.dart';
-import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
 class CreateSplitDue {
   final DueRepository repository;
@@ -35,7 +35,7 @@ class CreateSplitDue {
 
     final firstDate = startDate ?? DateTime.now();
     DateTime cursor = firstDate;
-    final dues = <DueModel>[];
+    final dues = <DueEntity>[];
 
     for (int i = 0; i < installmentCount; i++) {
       final dueDate = _nextDueDate(cursor, cleanDays);
@@ -44,7 +44,7 @@ class CreateSplitDue {
           : base;
 
       dues.add(
-        DueModel(
+        DueEntity(
           name: name,
           amount: installmentCents / 100,
           dayOfMonth: dueDate.day,
