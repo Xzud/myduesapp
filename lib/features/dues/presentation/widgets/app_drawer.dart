@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
 
+import 'package:myduesapp/features/dues/presentation/pages/all_dues_showcase.dart';
+
 class AppDrawer extends StatelessWidget {
   final String current;
 
   const AppDrawer({super.key, required this.current});
+
+  void _openAllDues(BuildContext context) {
+    Navigator.pop(context);
+    if (current == '/all-dues') return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => const AllDuesShowcasePage(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +55,12 @@ class AppDrawer extends StatelessWidget {
               label: 'Overview',
               icon: Icons.view_list_rounded,
               route: '/overview',
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_rounded),
+              title: const Text('All Dues'),
+              selected: current == '/all-dues',
+              onTap: () => _openAllDues(context),
             ),
             item(
               label: 'Settings',
