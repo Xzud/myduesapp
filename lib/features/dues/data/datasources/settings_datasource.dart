@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 abstract class SettingsDatasource {
   Future<SettingsModel?> getSettings(String key);
   Future<void> setSettings(String key, dynamic value);
+  Future<void> clearAllData();
 }
 
 class SettingsDatasourceImpl implements SettingsDatasource {
@@ -13,7 +14,7 @@ class SettingsDatasourceImpl implements SettingsDatasource {
 
   @override
   Future<SettingsModel?> getSettings(String key) async {
-    List<Map<String, dynamic>> maps = await database.query(
+    final maps = await database.query(
       'settings',
       where: 'key = ?',
       whereArgs: [key],
@@ -27,12 +28,17 @@ class SettingsDatasourceImpl implements SettingsDatasource {
 
   @override
   Future<void> setSettings(String key, dynamic value) async {
-    SettingsModel settings = SettingsModel.create(key: key, value: value);
+    final settings = SettingsModel.create(key: key, value: value);
 
     await database.insert(
       'settings',
       settings.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  @override
+  Future<void> clearAllData() async {
+    await database.delete('settings');
   }
 }

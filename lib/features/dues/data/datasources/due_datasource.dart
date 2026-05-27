@@ -7,6 +7,7 @@ abstract class DueDatasource {
   Future<void> createDue(DueModel due);
   Future<void> createDues(List<DueModel> dues);
   Future<void> setPaid(int id, bool paid);
+  Future<void> clearAllData();
 }
 
 class DueDatasourceImpl implements DueDatasource {
@@ -45,5 +46,10 @@ class DueDatasourceImpl implements DueDatasource {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  @override
+  Future<void> clearAllData() async {
+    await database.delete('dues');
   }
 }

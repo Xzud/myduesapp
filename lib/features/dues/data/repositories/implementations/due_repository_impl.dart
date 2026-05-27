@@ -19,4 +19,7 @@ class DueRepositoryImpl implements DueRepository {
 
   @override
   Future<void> setPaid(int id, bool paid) async => datasource.setPaid(id, paid);
+
+  @override
+  Future<void> clearAllData() async => datasource.clearAllData();
 }

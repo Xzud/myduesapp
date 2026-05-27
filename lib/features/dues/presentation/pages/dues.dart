@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart' show Due, MonthlyDue;
+import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart'
+    show Due, MonthlyDue;
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
@@ -44,7 +45,8 @@ class _DuesPageState extends State<DuesPage> {
     return out;
   }
 
-  bool _loanComplete(List<Due> dues) => dues.isNotEmpty && dues.every((d) => d.paid);
+  bool _loanComplete(List<Due> dues) =>
+      dues.isNotEmpty && dues.every((d) => d.paid);
 
   int _paidCount(List<Due> dues) => dues.where((d) => d.paid).length;
 
@@ -105,7 +107,8 @@ class _DuesPageState extends State<DuesPage> {
                   loanComplete: _loanComplete,
                   paidCount: _paidCount,
                   loanTitle: _loanTitle,
-                  onTogglePaid: (id, paid) => controller.togglePaid(dueId: id, paid: paid),
+                  onTogglePaid: (id, paid) =>
+                      controller.togglePaid(dueId: id, paid: paid),
                 );
               },
             ),
@@ -192,7 +195,9 @@ class _LoanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final headerColor = complete ? cs.primaryContainer : cs.surfaceContainerHighest;
+    final headerColor = complete
+        ? cs.primaryContainer
+        : cs.surfaceContainerHighest;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -228,7 +233,9 @@ class _LoanCard extends StatelessWidget {
           for (final d in dues)
             CheckboxListTile(
               value: d.paid,
-              onChanged: d.id <= 0 ? null : (v) => onTogglePaid(d.id, v ?? false),
+              onChanged: d.id <= 0
+                  ? null
+                  : (v) => onTogglePaid(d.id, v ?? false),
               title: Text(
                 d.installmentIndex != null && d.installmentCount != null
                     ? 'Installment ${d.installmentIndex}/${d.installmentCount}'

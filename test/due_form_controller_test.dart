@@ -26,7 +26,7 @@ void main() {
     expect(controller.isLoading, false);
     expect(controller.errorMessage, isNull);
   });
-  
+
   test('creates split loan successfully', () async {
     when(() => mockGetPaymentDates()).thenAnswer((_) async => ['5', '15']);
     when(

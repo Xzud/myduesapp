@@ -10,6 +10,7 @@ import 'package:myduesapp/features/dues/data/repositories/settings_repository.da
 import 'package:myduesapp/features/dues/domain/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/domain/usecases/reset_all_data.dart';
 import 'package:myduesapp/features/dues/domain/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/domain/usecases/set_payment_dates.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
@@ -48,12 +49,19 @@ Future<void> init() async {
     () => CreateSplitDue(repository: sl()),
   );
   sl.registerLazySingleton<SetDuePaid>(() => SetDuePaid(repository: sl()));
+  sl.registerLazySingleton<ResetAllData>(
+    () => ResetAllData(dueRepository: sl(), settingsRepository: sl()),
+  );
 
   sl.registerFactory(() => DueController(getAllDues: sl(), setDuePaid: sl()));
   sl.registerFactory(
     () => DueFormController(getPaymentDates: sl(), createSplitDue: sl()),
   );
   sl.registerFactory(
-    () => SettingsController(getPaymentDates: sl(), setPaymentDates: sl()),
+    () => SettingsController(
+      getPaymentDates: sl(),
+      setPaymentDates: sl(),
+      resetAllData: sl(),
+    ),
   );
 }

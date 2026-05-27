@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/domain/usecases/reset_all_data.dart';
 import 'package:myduesapp/features/dues/domain/usecases/set_payment_dates.dart';
 
 class SettingsController extends ChangeNotifier {
   final GetPaymentDates getPaymentDates;
   final SetPaymentDates setPaymentDates;
+  final ResetAllData resetAllData;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -15,6 +17,7 @@ class SettingsController extends ChangeNotifier {
   SettingsController({
     required this.getPaymentDates,
     required this.setPaymentDates,
+    required this.resetAllData,
   });
 
   List<int> _billingDays = [];
@@ -56,6 +59,22 @@ class SettingsController extends ChangeNotifier {
   Future<void> removeBillingDay(int day) async {
     final next = _billingDays.where((d) => d != day).toList()..sort();
     await _persist(next);
+  }
+
+  Future<void> resetData() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await resetAllData.call();
+      _billingDays = [];
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _persist(List<int> next) async {

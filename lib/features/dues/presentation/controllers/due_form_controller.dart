@@ -82,7 +82,8 @@ class DueFormController extends ChangeNotifier {
   }) {
     if (installmentCount < 1) return const [];
 
-    final cleanDays = billingDays.toSet().where((d) => d >= 1 && d <= 31).toList()..sort();
+    final cleanDays =
+        billingDays.toSet().where((d) => d >= 1 && d <= 31).toList()..sort();
     if (cleanDays.isEmpty) return const [];
 
     final cents = (amount * 100).round();
@@ -95,7 +96,9 @@ class DueFormController extends ChangeNotifier {
     final out = <InstallmentPreview>[];
     for (int i = 0; i < installmentCount; i++) {
       final dueDate = _nextDueDate(cursor, cleanDays);
-      final installmentCents = i == installmentCount - 1 ? base + remainder : base;
+      final installmentCents = i == installmentCount - 1
+          ? base + remainder
+          : base;
       out.add(
         InstallmentPreview(
           index: i + 1,
@@ -149,7 +152,11 @@ class DueFormController extends ChangeNotifier {
       for (final day in billingDays) {
         final maxDay = DateTime(monthCursor.year, monthCursor.month + 1, 0).day;
         final clampedDay = day > maxDay ? maxDay : day;
-        final candidate = DateTime(monthCursor.year, monthCursor.month, clampedDay);
+        final candidate = DateTime(
+          monthCursor.year,
+          monthCursor.month,
+          clampedDay,
+        );
         final fromDateOnly = DateTime(from.year, from.month, from.day);
         if (!candidate.isBefore(fromDateOnly)) {
           return candidate;

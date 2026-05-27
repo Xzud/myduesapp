@@ -142,7 +142,8 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           IconButton(
             tooltip: 'Settings',
-            onPressed: () => Navigator.pushReplacementNamed(context, '/settings'),
+            onPressed: () =>
+                Navigator.pushReplacementNamed(context, '/settings'),
             icon: const Icon(Icons.settings_rounded),
           ),
         ],
@@ -200,7 +201,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           TextFormField(
                             key: const Key('principalField'),
                             controller: _principalCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Principal amount (PHP)',
@@ -209,7 +212,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                             validator: (v) {
                               final amt = double.tryParse((v ?? '').trim());
-                              if (amt == null || amt <= 0) return 'Enter a valid amount';
+                              if (amt == null || amt <= 0)
+                                return 'Enter a valid amount';
                               return null;
                             },
                           ),
@@ -220,15 +224,21 @@ class _MyHomePageState extends State<MyHomePage> {
                                 child: TextFormField(
                                   key: const Key('installmentsField'),
                                   controller: _installmentsCtrl,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: false,
+                                      ),
                                   decoration: const InputDecoration(
                                     labelText: 'Installments',
                                     hintText: 'e.g., 3',
-                                    prefixIcon: Icon(Icons.format_list_numbered_rounded),
+                                    prefixIcon: Icon(
+                                      Icons.format_list_numbered_rounded,
+                                    ),
                                   ),
                                   validator: (v) {
                                     final n = int.tryParse((v ?? '').trim());
-                                    if (n == null || n < 1) return 'Must be at least 1';
+                                    if (n == null || n < 1)
+                                      return 'Must be at least 1';
                                     if (n > 120) return 'Too many installments';
                                     return null;
                                   },
@@ -245,7 +255,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                       prefixIcon: Icon(Icons.event_rounded),
                                     ),
                                     child: Text(
-                                      _startDate == null ? 'Today' : formatYmd(_startDate!),
+                                      _startDate == null
+                                          ? 'Today'
+                                          : formatYmd(_startDate!),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -264,7 +276,10 @@ class _MyHomePageState extends State<MyHomePage> {
                                 ),
                               ),
                               TextButton.icon(
-                                onPressed: () => Navigator.pushReplacementNamed(context, '/settings'),
+                                onPressed: () => Navigator.pushReplacementNamed(
+                                  context,
+                                  '/settings',
+                                ),
                                 icon: const Icon(Icons.tune_rounded),
                                 label: const Text('Edit'),
                               ),
@@ -276,7 +291,8 @@ class _MyHomePageState extends State<MyHomePage> {
                           if (!_loadingBillingDays && _billingDays.isEmpty)
                             Text(
                               'No billing days set. Add at least one in Settings.',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
                                     color: Theme.of(context).colorScheme.error,
                                   ),
                             ),
@@ -297,7 +313,9 @@ class _MyHomePageState extends State<MyHomePage> {
                             width: double.infinity,
                             child: FilledButton.icon(
                               onPressed: controller.isLoading ? null : _submit,
-                              icon: const Icon(Icons.add_circle_outline_rounded),
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                              ),
                               label: const Text('Create'),
                             ),
                           ),
@@ -305,7 +323,9 @@ class _MyHomePageState extends State<MyHomePage> {
                             const SizedBox(height: 10),
                             Text(
                               controller.errorMessage!,
-                              style: TextStyle(color: Theme.of(context).colorScheme.error),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
                             ),
                           ],
                         ],
