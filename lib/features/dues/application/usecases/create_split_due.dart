@@ -38,7 +38,9 @@ class CreateSplitDue {
     final dues = <DueEntity>[];
 
     for (int i = 0; i < installmentCount; i++) {
-      final dueDate = _nextDueDate(cursor, cleanDays);
+      final dueDate = cleanDays.length == 1
+          ? _nextDueDateForSingleBillingDay(cursor, cleanDays.single)
+          : _nextDueDateForMultipleBillingDays(cursor, cleanDays);
       final installmentCents = i == installmentCount - 1
           ? base + remainder
           : base;
@@ -70,7 +72,29 @@ class CreateSplitDue {
     return 'loan_${now}_$rand';
   }
 
-  DateTime _nextDueDate(DateTime from, List<int> billingDays) {
+  DateTime _nextDueDateForSingleBillingDay(DateTime from, int billingDay) {
+    final dateOnly = DateTime(from.year, from.month, from.day);
+    var monthCursor = DateTime(from.year, from.month, 1);
+
+    while (true) {
+      final maxDay = DateTime(monthCursor.year, monthCursor.month + 1, 0).day;
+      final clampedDay = billingDay > maxDay ? maxDay : billingDay;
+      final candidate = DateTime(
+        monthCursor.year,
+        monthCursor.month,
+        clampedDay,
+      );
+      if (!candidate.isBefore(dateOnly)) {
+        return candidate;
+      }
+      monthCursor = DateTime(monthCursor.year, monthCursor.month + 1, 1);
+    }
+  }
+
+  DateTime _nextDueDateForMultipleBillingDays(
+    DateTime from,
+    List<int> billingDays,
+  ) {
     DateTime monthCursor = DateTime(from.year, from.month, 1);
     final dateOnly = DateTime(from.year, from.month, from.day);
 

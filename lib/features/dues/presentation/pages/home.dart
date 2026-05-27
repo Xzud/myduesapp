@@ -8,6 +8,8 @@ import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
+enum _BillingPeriodSelectionMode { single, multiple }
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({
     super.key,
@@ -35,6 +37,9 @@ class _MyHomePageState extends State<MyHomePage> {
   AmountInputMode _amountMode = AmountInputMode.principal;
   DateTime? _startDate;
   List<int> _billingDays = const [];
+  final Set<int> _selectedBillingDays = <int>{};
+  _BillingPeriodSelectionMode _billingPeriodSelectionMode =
+      _BillingPeriodSelectionMode.multiple;
   bool _loadingBillingDays = true;
 
   @override
@@ -66,6 +71,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     setState(() {
       _billingDays = days;
+      _syncSelectedBillingDays(days);
       _loadingBillingDays = false;
     });
   }
@@ -77,6 +83,109 @@ class _MyHomePageState extends State<MyHomePage> {
   double _amountValue() => double.tryParse(_amountCtrl.text.trim()) ?? 0;
 
   int _installmentCount() => int.tryParse(_installmentsCtrl.text.trim()) ?? 0;
+
+  List<int> _selectedBillingDaysList() {
+    final selected = _selectedBillingDays.toList()..sort();
+    return selected;
+  }
+
+  String _billingPeriodSummary() {
+    final selected = _selectedBillingDaysList();
+    if (selected.isEmpty) return 'Select at least one billing period.';
+    if (_billingPeriodSelectionMode == _BillingPeriodSelectionMode.single ||
+        selected.length == 1) {
+      return 'Selected period: ${selected.first}';
+    }
+
+    return 'Selected periods: ${selected.join(', ')}';
+  }
+
+  String _billingPeriodDescription() {
+    switch (_billingPeriodSelectionMode) {
+      case _BillingPeriodSelectionMode.single:
+        return 'Choose one billing period to populate due dates.';
+      case _BillingPeriodSelectionMode.multiple:
+        return 'Choose one or more billing periods to cycle through.';
+    }
+  }
+
+  void _syncSelectedBillingDays(List<int> days) {
+    final available = days.toSet().toList()..sort();
+    final preserved = _selectedBillingDays.where(available.contains).toSet();
+
+    if (preserved.isEmpty && available.isNotEmpty) {
+      if (_billingPeriodSelectionMode == _BillingPeriodSelectionMode.single) {
+        preserved.add(available.first);
+      } else {
+        preserved.addAll(available);
+      }
+    }
+
+    _selectedBillingDays
+      ..clear()
+      ..addAll(preserved);
+  }
+
+  void _selectBillingDay(int day) {
+    setState(() {
+      if (_billingPeriodSelectionMode == _BillingPeriodSelectionMode.single) {
+        _selectedBillingDays
+          ..clear()
+          ..add(day);
+        return;
+      }
+
+      if (_selectedBillingDays.contains(day)) {
+        _selectedBillingDays.remove(day);
+      } else {
+        _selectedBillingDays.add(day);
+      }
+    });
+  }
+
+  void _changeBillingPeriodMode(_BillingPeriodSelectionMode mode) {
+    setState(() {
+      _billingPeriodSelectionMode = mode;
+
+      if (_billingDays.isEmpty) {
+        _selectedBillingDays.clear();
+        return;
+      }
+
+      final current = _selectedBillingDaysList();
+      if (mode == _BillingPeriodSelectionMode.single) {
+        final next = current.isNotEmpty ? current.first : _billingDays.first;
+        _selectedBillingDays
+          ..clear()
+          ..add(next);
+      } else if (_selectedBillingDays.isEmpty) {
+        _selectedBillingDays.addAll(_billingDays);
+      }
+    });
+  }
+
+  Widget _buildBillingDayChip(int day) {
+    final selected = _selectedBillingDays.contains(day);
+    if (_billingPeriodSelectionMode == _BillingPeriodSelectionMode.single) {
+      return ChoiceChip(
+        key: Key('billingPeriodSelectionChip_$day'),
+        label: Text(day.toString()),
+        selected: selected,
+        onSelected: (isSelected) {
+          if (isSelected) {
+            _selectBillingDay(day);
+          }
+        },
+      );
+    }
+
+    return FilterChip(
+      key: Key('billingPeriodSelectionChip_$day'),
+      label: Text(day.toString()),
+      selected: selected,
+      onSelected: (_) => _selectBillingDay(day),
+    );
+  }
 
   String _amountLabel() {
     return _amountMode == AmountInputMode.monthly
@@ -133,12 +242,20 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
 
+    final selectedBillingDays = _selectedBillingDaysList();
+    if (selectedBillingDays.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one billing period.')),
+      );
+      return;
+    }
+
     try {
       await controller.submitSplitDue(
         name: _titleCtrl.text.trim(),
         inputAmount: _amountValue(),
         installmentCount: _installmentCount(),
-        billingDays: _billingDays,
+        billingDays: selectedBillingDays,
         startDate: _startDate,
         amountMode: _amountMode,
       );
@@ -383,6 +500,52 @@ class _MyHomePageState extends State<MyHomePage> {
                                   ),
                               ],
                             ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Billing period selection',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          SegmentedButton<_BillingPeriodSelectionMode>(
+                            segments: const [
+                              ButtonSegment(
+                                value: _BillingPeriodSelectionMode.single,
+                                label: Text('Single'),
+                                icon: Icon(Icons.radio_button_checked_rounded),
+                              ),
+                              ButtonSegment(
+                                value: _BillingPeriodSelectionMode.multiple,
+                                label: Text('Multiple'),
+                                icon: Icon(Icons.checklist_rounded),
+                              ),
+                            ],
+                            selected: {_billingPeriodSelectionMode},
+                            showSelectedIcon: false,
+                            onSelectionChanged: (selection) {
+                              if (selection.isEmpty) return;
+                              _changeBillingPeriodMode(selection.first);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _billingPeriodDescription(),
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 12),
+                          if (!_loadingBillingDays && _billingDays.isNotEmpty)
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final d in _billingDays)
+                                  _buildBillingDayChip(d),
+                              ],
+                            ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _billingPeriodSummary(),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                           const SizedBox(height: 16),
                           SizedBox(
                             width: double.infinity,
