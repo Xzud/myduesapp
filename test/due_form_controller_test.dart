@@ -59,6 +59,38 @@ void main() {
     ).called(1);
   });
 
+  test('converts monthly amount to total when submitting split due', () async {
+    when(
+      () => mockCreateSplitDue(
+        name: any(named: 'name'),
+        amount: any(named: 'amount'),
+        installmentCount: any(named: 'installmentCount'),
+        billingDays: any(named: 'billingDays'),
+        startDate: any(named: 'startDate'),
+      ),
+    ).thenAnswer((_) async {});
+
+    await controller.submitSplitDue(
+      name: 'Loan A',
+      inputAmount: 1000,
+      installmentCount: 3,
+      billingDays: [5, 15],
+      amountMode: AmountInputMode.monthly,
+    );
+
+    expect(controller.errorMessage, isNull);
+    expect(controller.isLoading, false);
+    verify(
+      () => mockCreateSplitDue(
+        name: 'Loan A',
+        amount: 3000,
+        installmentCount: 3,
+        billingDays: [5, 15],
+        startDate: null,
+      ),
+    ).called(1);
+  });
+
   test('stores error if split creation fails', () async {
     when(() => mockGetPaymentDates()).thenAnswer((_) async => ['5']);
     when(

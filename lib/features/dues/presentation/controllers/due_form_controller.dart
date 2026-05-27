@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:myduesapp/features/dues/domain/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
 
+enum AmountInputMode { principal, monthly }
+
 class InstallmentPreview {
   final int index;
   final int count;
@@ -40,6 +42,17 @@ class DueFormController extends ChangeNotifier {
     }
     days.sort();
     return days.toSet().toList()..sort();
+  }
+
+  double resolveSplitAmount({
+    required double inputAmount,
+    required int installmentCount,
+    required AmountInputMode amountMode,
+  }) {
+    if (amountMode == AmountInputMode.monthly) {
+      return inputAmount * installmentCount;
+    }
+    return inputAmount;
   }
 
   // Backward-compatible API used by existing unit tests.
@@ -115,16 +128,22 @@ class DueFormController extends ChangeNotifier {
 
   Future<void> submitSplitDue({
     required String name,
-    required double amount,
+    required double inputAmount,
     required int installmentCount,
     required List<int> billingDays,
     DateTime? startDate,
+    AmountInputMode amountMode = AmountInputMode.principal,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
+      final amount = resolveSplitAmount(
+        inputAmount: inputAmount,
+        installmentCount: installmentCount,
+        amountMode: amountMode,
+      );
       await createSplitDue.call(
         name: name,
         amount: amount,

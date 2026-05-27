@@ -29,9 +29,10 @@ class _MyHomePageState extends State<MyHomePage> {
   final _formKey = GlobalKey<FormState>();
 
   final _titleCtrl = TextEditingController();
-  final _principalCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
   final _installmentsCtrl = TextEditingController(text: '3');
 
+  AmountInputMode _amountMode = AmountInputMode.principal;
   DateTime? _startDate;
   List<int> _billingDays = const [];
   bool _loadingBillingDays = true;
@@ -50,7 +51,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     _titleCtrl.dispose();
-    _principalCtrl.dispose();
+    _amountCtrl.dispose();
     _installmentsCtrl.dispose();
     super.dispose();
   }
@@ -73,9 +74,32 @@ class _MyHomePageState extends State<MyHomePage> {
     await Future.wait([_refreshBillingDays(), dueController.fetchDues()]);
   }
 
-  double _principalAmount() => double.tryParse(_principalCtrl.text.trim()) ?? 0;
+  double _amountValue() => double.tryParse(_amountCtrl.text.trim()) ?? 0;
 
   int _installmentCount() => int.tryParse(_installmentsCtrl.text.trim()) ?? 0;
+
+  String _amountLabel() {
+    return _amountMode == AmountInputMode.monthly
+        ? 'Monthly amount to pay (PHP)'
+        : 'Principal amount (PHP)';
+  }
+
+  String _amountHint() {
+    return _amountMode == AmountInputMode.monthly ? 'e.g., 1500' : 'e.g., 5000';
+  }
+
+  String? _amountHelperText() {
+    if (_amountMode == AmountInputMode.monthly) {
+      return 'The total loan will be computed from the monthly amount and installments.';
+    }
+    return null;
+  }
+
+  IconData _amountIcon() {
+    return _amountMode == AmountInputMode.monthly
+        ? Icons.calendar_month_rounded
+        : Icons.payments_rounded;
+  }
 
   Future<void> _pickStartDate() async {
     final now = DateTime.now();
@@ -112,18 +136,20 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       await controller.submitSplitDue(
         name: _titleCtrl.text.trim(),
-        amount: _principalAmount(),
+        inputAmount: _amountValue(),
         installmentCount: _installmentCount(),
         billingDays: _billingDays,
         startDate: _startDate,
+        amountMode: _amountMode,
       );
 
       if (!mounted) return;
 
       _titleCtrl.clear();
-      _principalCtrl.clear();
+      _amountCtrl.clear();
       _installmentsCtrl.text = '3';
       setState(() {
+        _amountMode = AmountInputMode.principal;
         _startDate = null;
       });
 
@@ -223,22 +249,45 @@ class _MyHomePageState extends State<MyHomePage> {
                             },
                           ),
                           const SizedBox(height: 12),
+                          SegmentedButton<AmountInputMode>(
+                            segments: const [
+                              ButtonSegment(
+                                value: AmountInputMode.principal,
+                                label: Text('Principal'),
+                              ),
+                              ButtonSegment(
+                                value: AmountInputMode.monthly,
+                                label: Text('Monthly'),
+                              ),
+                            ],
+                            selected: {_amountMode},
+                            showSelectedIcon: false,
+                            onSelectionChanged: (selection) {
+                              if (selection.isEmpty) return;
+                              setState(() {
+                                _amountMode = selection.first;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
                           TextFormField(
-                            key: const Key('principalField'),
-                            controller: _principalCtrl,
+                            key: const Key('amountField'),
+                            controller: _amountCtrl,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
                             textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              labelText: 'Principal amount (PHP)',
-                              hintText: 'e.g., 5000',
-                              prefixIcon: Icon(Icons.payments_rounded),
+                            decoration: InputDecoration(
+                              labelText: _amountLabel(),
+                              hintText: _amountHint(),
+                              helperText: _amountHelperText(),
+                              prefixIcon: Icon(_amountIcon()),
                             ),
                             validator: (v) {
                               final amt = double.tryParse((v ?? '').trim());
-                              if (amt == null || amt <= 0)
+                              if (amt == null || amt <= 0) {
                                 return 'Enter a valid amount';
+                              }
                               return null;
                             },
                           ),
@@ -262,8 +311,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                   ),
                                   validator: (v) {
                                     final n = int.tryParse((v ?? '').trim());
-                                    if (n == null || n < 1)
+                                    if (n == null || n < 1) {
                                       return 'Must be at least 1';
+                                    }
                                     if (n > 120) return 'Too many installments';
                                     return null;
                                   },
