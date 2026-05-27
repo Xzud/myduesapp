@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 
+import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart'
+    show Due;
+import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage({
+    super.key,
+    required this.title,
+    this.autoLoadPreview = true,
+  });
 
   final String title;
+  final bool autoLoadPreview;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -16,6 +24,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   late final DueFormController controller;
+  late final DueController dueController;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -31,7 +40,11 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     controller = sl<DueFormController>();
+    dueController = sl<DueController>();
     _refreshBillingDays();
+    if (widget.autoLoadPreview) {
+      dueController.fetchDues();
+    }
   }
 
   @override
@@ -56,18 +69,13 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> _refreshAll() async {
+    await Future.wait([_refreshBillingDays(), dueController.fetchDues()]);
+  }
+
   double _principalAmount() => double.tryParse(_principalCtrl.text.trim()) ?? 0;
 
   int _installmentCount() => int.tryParse(_installmentsCtrl.text.trim()) ?? 0;
-
-  List<InstallmentPreview> _preview() {
-    return controller.buildPreview(
-      amount: _principalAmount(),
-      installmentCount: _installmentCount(),
-      billingDays: _billingDays,
-      startDate: _startDate,
-    );
-  }
 
   Future<void> _pickStartDate() async {
     final now = DateTime.now();
@@ -127,9 +135,26 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  List<Due> _duePreviewItems() {
+    final all = <Due>[];
+    for (final month in dueController.dues) {
+      all.addAll(month.dues);
+    }
+
+    all.sort((a, b) {
+      final ad = DateTime.tryParse(a.dueDate ?? '') ?? DateTime(0);
+      final bd = DateTime.tryParse(b.dueDate ?? '') ?? DateTime(0);
+      final c = ad.compareTo(bd);
+      if (c != 0) return c;
+      return a.id.compareTo(b.id);
+    });
+
+    return all.take(5).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final preview = _preview();
+    final duesPreview = _duePreviewItems();
 
     return Scaffold(
       appBar: AppBar(
@@ -137,7 +162,7 @@ class _MyHomePageState extends State<MyHomePage> {
         actions: [
           IconButton(
             tooltip: 'Refresh billing days',
-            onPressed: _refreshBillingDays,
+            onPressed: _refreshAll,
             icon: const Icon(Icons.refresh_rounded),
           ),
           IconButton(
@@ -150,7 +175,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       drawer: const AppDrawer(current: '/'),
       body: ListenableBuilder(
-        listenable: controller,
+        listenable: Listenable.merge([controller, dueController]),
         builder: (context, child) {
           return SafeArea(
             child: ListView(
@@ -342,17 +367,22 @@ class _MyHomePageState extends State<MyHomePage> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    if (preview.isNotEmpty)
+                    if (duesPreview.isNotEmpty)
                       Text(
-                        '${preview.length} items',
+                        '${duesPreview.length} items',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (preview.isEmpty)
+                if (dueController.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  ),
+                if (duesPreview.isEmpty)
                   Text(
-                    'Enter a principal amount, installment count, and configure billing days to see a preview.',
+                    'You currently have no dues',
                     style: Theme.of(context).textTheme.bodyMedium,
                   )
                 else
@@ -360,16 +390,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
-                        for (final p in preview)
+                        for (final d in duesPreview)
                           ListTile(
                             dense: true,
-                            leading: CircleAvatar(
-                              radius: 16,
-                              child: Text(p.index.toString()),
-                            ),
-                            title: Text(formatPhp(p.amount)),
-                            subtitle: Text('Due ${formatYmd(p.dueDate)}'),
-                            trailing: Text('${p.index}/${p.count}'),
+                            title: Text(d.name),
+                            subtitle: Text(_dueSubtitle(d)),
+                            trailing: Text(formatPhp(d.price)),
                           ),
                       ],
                     ),
@@ -380,5 +406,16 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
     );
+  }
+
+  String _dueSubtitle(Due due) {
+    final dt = DateTime.tryParse(due.dueDate ?? '');
+    if (dt == null) return 'No due date';
+
+    if (due.installmentIndex != null && due.installmentCount != null) {
+      return 'Installment ${due.installmentIndex}/${due.installmentCount} • Due ${formatYmd(dt)}';
+    }
+
+    return 'Due ${formatYmd(dt)}';
   }
 }
