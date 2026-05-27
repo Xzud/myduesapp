@@ -7,9 +7,11 @@ import 'package:myduesapp/features/dues/data/repositories/due_repository.dart';
 import 'package:myduesapp/features/dues/data/repositories/implementations/due_repository_impl.dart';
 import 'package:myduesapp/features/dues/data/repositories/implementations/settings_repository_impl.dart';
 import 'package:myduesapp/features/dues/data/repositories/settings_repository.dart';
-import 'package:myduesapp/features/dues/domain/usecases/create_due.dart';
+import 'package:myduesapp/features/dues/domain/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/domain/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/domain/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/domain/usecases/set_payment_dates.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
@@ -21,7 +23,6 @@ Future<void> init() async {
   final db = await DatabaseHelper.instance.database;
   sl.registerLazySingleton<Database>(() => db);
 
-  // DATA SOURCES
   sl.registerLazySingleton<DueDatasource>(
     () => DueDatasourceImpl(database: sl()),
   );
@@ -29,7 +30,6 @@ Future<void> init() async {
     () => SettingsDatasourceImpl(database: sl()),
   );
 
-  // DATA REPOSITORIES
   sl.registerLazySingleton<DueRepository>(
     () => DueRepositoryImpl(datasource: sl()),
   );
@@ -37,15 +37,23 @@ Future<void> init() async {
     () => SettingsRepositoryImpl(datasource: sl()),
   );
 
-  // USECASES
   sl.registerLazySingleton<GetAllDues>(() => GetAllDues(repository: sl()));
   sl.registerLazySingleton<GetPaymentDates>(
     () => GetPaymentDates(repository: sl()),
   );
-  sl.registerLazySingleton<CreateDue>(() => CreateDue(repository: sl()));
+  sl.registerLazySingleton<SetPaymentDates>(
+    () => SetPaymentDates(repository: sl()),
+  );
+  sl.registerLazySingleton<CreateSplitDue>(
+    () => CreateSplitDue(repository: sl()),
+  );
+  sl.registerLazySingleton<SetDuePaid>(() => SetDuePaid(repository: sl()));
 
-  // CONTROLLERs
-  sl.registerFactory(() => DueController(getAllDues: sl()));
-  sl.registerFactory(() => DueFormController(getPaymentDates: sl(), createDueUseCase: sl()));
-  sl.registerFactory(() => SettingsController(getPaymentDates: sl()));
+  sl.registerFactory(() => DueController(getAllDues: sl(), setDuePaid: sl()));
+  sl.registerFactory(
+    () => DueFormController(getPaymentDates: sl(), createSplitDue: sl()),
+  );
+  sl.registerFactory(
+    () => SettingsController(getPaymentDates: sl(), setPaymentDates: sl()),
+  );
 }

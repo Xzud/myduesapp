@@ -6,6 +6,18 @@ class GetPaymentDates {
   GetPaymentDates({required this.repository});
 
   Future<List<String>> call() async {
-    return [];
+    final settings = await repository.getBillingDates();
+    if (settings == null) {
+      return [];
+    }
+
+    final decoded = settings.getDecodedValue();
+    if (decoded is! List) {
+      return [];
+    }
+
+    final values = decoded.map((e) => e.toString()).toList();
+    values.sort((a, b) => int.parse(a).compareTo(int.parse(b)));
+    return values;
   }
 }

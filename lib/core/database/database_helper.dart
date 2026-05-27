@@ -1,7 +1,6 @@
 import 'package:myduesapp/features/dues/data/models/due_model.dart';
-import 'package:myduesapp/features/dues/data/models/duedate_model.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
   static Database? _database;
@@ -17,12 +16,17 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'mydues.db');
+    final path = join(await getDatabasesPath(), 'mydues.db');
 
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
-  Future _onCreate(Database db, int version) async {
+  Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE dues(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,97 +35,43 @@ class DatabaseHelper {
         recurring INTEGER DEFAULT 0,
         recurring_interval INTEGER DEFAULT 1,
         day_of_month INTEGER,
+        loan_id TEXT,
+        installment_index INTEGER,
+        installment_count INTEGER,
+        due_date TEXT,
         paid INTEGER DEFAULT 0,
         complete INTEGER DEFAULT 0,
-        CREATED_AT TEXT DEFAULT CURRENT_TIMESTAMP,
-        UPDATED_AT TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
+    ''');
 
-      CREATE TABLE payment_dates(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date_of_month INTEGER
-      )
+    await db.execute('''
+      CREATE TABLE settings(
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
     ''');
   }
 
-  Future<List<Map<String, dynamic>>> getDues() async {
-    final db = await database;
-
-    var result = await db.query('dues');
-
-    List<Map<String, dynamic>> dues = [];
-
-    if (result.isEmpty) {
-      print('No dues found');
-      return [];
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE dues ADD COLUMN loan_id TEXT');
+      await db.execute('ALTER TABLE dues ADD COLUMN installment_index INTEGER');
+      await db.execute('ALTER TABLE dues ADD COLUMN installment_count INTEGER');
+      await db.execute('ALTER TABLE dues ADD COLUMN due_date TEXT');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS settings(
+          key TEXT PRIMARY KEY,
+          value TEXT
+        );
+      ''');
     }
-
-    for (var item in result) {
-      DueModel currentDue = DueModel.fromMap(item);
-
-      if (dues.isEmpty) {
-        dues.add({
-          'month': currentDue.getMonthYear(),
-          'dues': [
-            {
-              'name': currentDue.name,
-              'price': currentDue.amount,
-              'paid': currentDue.paid,
-            },
-          ],
-        });
-        continue;
-      } else {
-        for (var due in dues) {
-          if (due['month'] == currentDue.getMonthYear()) {
-            due['dues'].add({
-              'name': currentDue.name,
-              'price': currentDue.amount,
-              'paid': currentDue.paid,
-            });
-            break;
-          } else {
-            dues.add({
-              'month': currentDue.getMonthYear(),
-              'dues': [
-                {
-                  'name': currentDue.name,
-                  'price': currentDue.amount,
-                  'paid': currentDue.paid,
-                },
-              ],
-            });
-            break;
-          }
-        }
-      }
-    }
-
-    print(result);
-    return dues;
   }
 
-  Future<List<String>> getPaymentDates() async {
+  Future<List<DueModel>> getDues() async {
     final db = await database;
-
-    var result = await db.query('payment_dates');
-
-    List<String> paymentDates = [];
-
-    if (result.isEmpty) {
-      print('No dues found');
-      return [];
-    }
-
-    for (var item in result) {
-      DuedateModel dueDate = DuedateModel.fromMap(item);
-      String monthYear = dueDate.dayOfMonth;
-      if (!paymentDates.contains(monthYear)) {
-        paymentDates.add(monthYear);
-      }
-    }
-
-    print(paymentDates);
-    return paymentDates;
+    final result = await db.query('dues', orderBy: 'due_date ASC, id ASC');
+    return result.map(DueModel.fromMap).toList();
   }
 }

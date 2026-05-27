@@ -45,7 +45,6 @@ void main() {
     expect(result[0].dues[0].price, equals(50.0));
     expect(result[0].dues[0].paid, equals(false));
 
-    
     verify(() => mockDueRepo.getDues()).called(1);
   });
 
@@ -94,18 +93,22 @@ void main() {
     // Assert
     expect(result, isNotEmpty);
     expect(result.length, equals(2)); // Two different months
-    
+
     // Check September dues
-    final septemberDues = result.firstWhere((element) => element.month == 'September 2023');
+    final septemberDues = result.firstWhere(
+      (element) => element.month == 'September 2023',
+    );
     expect(septemberDues.dues.length, equals(2));
     expect(septemberDues.dues[0].name, equals('Electricity Bill'));
     expect(septemberDues.dues[1].name, equals('Internet Bill'));
-    
+
     // Check October dues
-    final octoberDues = result.firstWhere((element) => element.month == 'October 2023');
+    final octoberDues = result.firstWhere(
+      (element) => element.month == 'October 2023',
+    );
     expect(octoberDues.dues.length, equals(1));
     expect(octoberDues.dues[0].name, equals('Rent Payment'));
-    
+
     verify(() => mockDueRepo.getDues()).called(1);
   });
 

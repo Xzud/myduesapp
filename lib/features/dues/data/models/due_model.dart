@@ -8,6 +8,10 @@ class DueModel extends DueEntity {
     super.recurring = false,
     super.recurringInterval = 1,
     required super.dayOfMonth,
+    super.loanId,
+    super.installmentIndex,
+    super.installmentCount,
+    super.dueDate,
     super.paid = false,
     super.complete = false,
     super.createdAt,
@@ -16,16 +20,20 @@ class DueModel extends DueEntity {
 
   factory DueModel.fromMap(Map<String, dynamic> map) {
     return DueModel(
-      id: map['id'],
-      name: map['name'],
-      amount: map['amount'],
-      recurring: map['recurring'] == 1,
-      recurringInterval: map['recurring_interval'],
-      dayOfMonth: map['day_of_month'],
-      paid: map['paid'] == 1,
-      complete: map['complete'] == 1,
-      createdAt: map['created_at'],
-      updatedAt: map['updated_at'],
+      id: map['id'] as int?,
+      name: map['name'] as String? ?? '',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0,
+      recurring: (map['recurring'] as int? ?? 0) == 1,
+      recurringInterval: map['recurring_interval'] as int? ?? 1,
+      dayOfMonth: map['day_of_month'] as int? ?? 0,
+      loanId: map['loan_id'] as String?,
+      installmentIndex: map['installment_index'] as int?,
+      installmentCount: map['installment_count'] as int?,
+      dueDate: map['due_date'] as String?,
+      paid: (map['paid'] as int? ?? 0) == 1,
+      complete: (map['complete'] as int? ?? 0) == 1,
+      createdAt: map['created_at'] as String?,
+      updatedAt: map['updated_at'] as String?,
     );
   }
 
@@ -37,6 +45,10 @@ class DueModel extends DueEntity {
       'recurring': recurring ? 1 : 0,
       'recurring_interval': recurringInterval,
       'day_of_month': dayOfMonth,
+      'loan_id': loanId,
+      'installment_index': installmentIndex,
+      'installment_count': installmentCount,
+      'due_date': dueDate,
       'paid': paid ? 1 : 0,
       'complete': complete ? 1 : 0,
       'created_at': createdAt,
@@ -44,20 +56,18 @@ class DueModel extends DueEntity {
     };
   }
 
-  void create(dynamic db) async {
-    await db.insert('dues', toMap());
-  }
-
-  void update(dynamic db) async {
-    await db.update('dues', toMap(), where: 'id = ?', whereArgs: [id]);
-  }
-
-  void delete(dynamic db) async {
-    await db.delete('dues', where: 'id = ?', whereArgs: [id]);
+  DateTime get effectiveDate {
+    if (dueDate != null && dueDate!.isNotEmpty) {
+      return DateTime.tryParse(dueDate!) ?? DateTime.now();
+    }
+    if (createdAt != null && createdAt!.isNotEmpty) {
+      return DateTime.tryParse(createdAt!) ?? DateTime.now();
+    }
+    return DateTime.now();
   }
 
   String getMonthYear() {
-    List<String> months = [
+    const months = [
       '',
       'January',
       'February',
@@ -72,9 +82,8 @@ class DueModel extends DueEntity {
       'November',
       'December',
     ];
-    DateTime now = DateTime.parse(createdAt ?? DateTime.now().toString());
-    String monthYear = "${months[now.month]} ${now.year}";
-    return monthYear;
+    final now = effectiveDate;
+    return '${months[now.month]} ${now.year}';
   }
 
   DueEntity toEntity() {
@@ -85,6 +94,10 @@ class DueModel extends DueEntity {
       recurring: recurring,
       recurringInterval: recurringInterval,
       dayOfMonth: dayOfMonth,
+      loanId: loanId,
+      installmentIndex: installmentIndex,
+      installmentCount: installmentCount,
+      dueDate: dueDate,
       paid: paid,
       complete: complete,
       createdAt: createdAt,

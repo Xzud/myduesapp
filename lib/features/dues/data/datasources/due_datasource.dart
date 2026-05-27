@@ -5,6 +5,8 @@ import 'package:sqflite/sqflite.dart';
 abstract class DueDatasource {
   Future<List<DueModel>> getDues();
   Future<void> createDue(DueModel due);
+  Future<void> createDues(List<DueModel> dues);
+  Future<void> setPaid(int id, bool paid);
 }
 
 class DueDatasourceImpl implements DueDatasource {
@@ -14,26 +16,34 @@ class DueDatasourceImpl implements DueDatasource {
 
   @override
   Future<List<DueModel>> getDues() async {
-    var result = await database.query('dues');
-
-    List<DueModel> dues = [];
-
-    if (result.isEmpty) {
-      print('No dues found');
-
-      return [];
-    }
-
-    for (var item in result) {
-      DueModel currentDue = DueModel.fromMap(item);
-
-      dues.add(currentDue);
-    }
-    return dues;
+    final result = await database.query(
+      'dues',
+      orderBy: 'due_date ASC, id ASC',
+    );
+    return result.map(DueModel.fromMap).toList();
   }
 
   @override
   Future<void> createDue(DueModel due) async {
     await database.insert('dues', due.toMap());
+  }
+
+  @override
+  Future<void> createDues(List<DueModel> dues) async {
+    await database.transaction((txn) async {
+      for (final due in dues) {
+        await txn.insert('dues', due.toMap());
+      }
+    });
+  }
+
+  @override
+  Future<void> setPaid(int id, bool paid) async {
+    await database.update(
+      'dues',
+      {'paid': paid ? 1 : 0, 'updated_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

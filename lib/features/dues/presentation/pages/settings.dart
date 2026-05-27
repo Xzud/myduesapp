@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
 import 'package:myduesapp/injection_container.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -11,115 +13,136 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late final SettingsController controller;
-  final TextEditingController dateInput = TextEditingController();
+  final TextEditingController dayCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     controller = sl<SettingsController>();
-
     controller.fetchPaymentDates();
   }
 
   @override
   void dispose() {
-    dateInput.dispose();
+    dayCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _addDay() async {
+    final day = int.tryParse(dayCtrl.text.trim());
+    if (day == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a number between 1 and 31.')),
+      );
+      return;
+    }
+
+    await controller.addBillingDay(day);
+    if (!mounted) return;
+
+    if (controller.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage!)),
+      );
+      return;
+    }
+
+    dayCtrl.clear();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Settings')),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: controller.fetchPaymentDates,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      drawer: const AppDrawer(current: '/settings'),
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, child) {
-          if (controller.isLoading) {
+          if (controller.isLoading && controller.billingDays.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (controller.errorMessage != null) {
+          if (controller.errorMessage != null && controller.billingDays.isEmpty) {
             return Center(child: Text('Error: ${controller.errorMessage}'));
           }
 
-          final paymentDates = controller.paymentDates;
+          final days = controller.billingDays;
 
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                spacing: 10,
-                children: [
-                  Center(child: Text('Settings Page')),
-                  Row(
-                    spacing: 10,
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: dateInput,
-                          keyboardType: TextInputType.numberWithOptions(
-                            decimal: false,
-                            signed: false,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Enter payment date of the month.',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Padding(
-                    padding: EdgeInsets.all(10),
+          return SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  'Billing days',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'These are the day(s) of the month used to schedule installment due dates.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Column(
-                      spacing: 5,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (var date in paymentDates.asMap().entries)
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(5),
-                              color: Colors.red[100],
-                            ),
-
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 5,
-                              ),
-                              child: Row(
-                                spacing: 10,
-                                children: [
-                                  Expanded(child: Text(date.value)),
-                                  IconButton(
-                                    icon: Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () {
-                                      controller.removePaymentDate(date.key);
-                                    },
-                                  ),
-                                ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: dayCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                                decoration: const InputDecoration(
+                                  labelText: 'Add billing day (1-31)',
+                                  hintText: 'e.g., 15',
+                                  prefixIcon: Icon(Icons.calendar_month_rounded),
+                                ),
+                                onSubmitted: (_) => _addDay(),
                               ),
                             ),
+                            const SizedBox(width: 12),
+                            FilledButton.icon(
+                              onPressed: controller.isLoading ? null : _addDay,
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Add'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (controller.isLoading) const LinearProgressIndicator(minHeight: 3),
+                        if (days.isEmpty)
+                          Text(
+                            'No billing days yet.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final d in days)
+                                InputChip(
+                                  label: Text(d.toString()),
+                                  onDeleted: controller.isLoading ? null : () => controller.removeBillingDay(d),
+                                ),
+                            ],
                           ),
                       ],
                     ),
                   ),
-
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                    ),
-                    onPressed: () {
-                      // Add the entered payment date to the list
-                      controller.addPaymentDate(dateInput.text);
-                      dateInput.clear();
-                    },
-                    child: const Text(
-                      'Add',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },

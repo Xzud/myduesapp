@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'package:myduesapp/features/dues/data/models/due_model.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -25,242 +17,348 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   late final DueFormController controller;
 
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _dateController = TextEditingController();
-  final TextEditingController _intervalController = TextEditingController();
-  bool _isRecurring = false;
+  final _formKey = GlobalKey<FormState>();
 
-  late DueModel due;
+  final _titleCtrl = TextEditingController();
+  final _principalCtrl = TextEditingController();
+  final _installmentsCtrl = TextEditingController(text: '3');
+
+  DateTime? _startDate;
+  List<int> _billingDays = const [];
+  bool _loadingBillingDays = true;
 
   @override
   void initState() {
     super.initState();
-
     controller = sl<DueFormController>();
-
-    _resetForm(); // Clear form on initial load
+    _refreshBillingDays();
   }
 
-  void _resetForm() {
-    setState(() {
-      _nameController.clear();
-      _amountController.clear();
-      _dateController.clear();
-      _intervalController.clear();
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _principalCtrl.dispose();
+    _installmentsCtrl.dispose();
+    super.dispose();
+  }
 
-      due = DueModel(
-        name: '',
-        amount: 0,
-        recurring: false,
-        recurringInterval: 0,
-        dayOfMonth: 0,
-        paid: false,
-        complete: false,
-      );
+  Future<void> _refreshBillingDays() async {
+    setState(() {
+      _loadingBillingDays = true;
+    });
+
+    final days = await controller.loadBillingDays();
+    if (!mounted) return;
+
+    setState(() {
+      _billingDays = days;
+      _loadingBillingDays = false;
     });
   }
 
-  void submitDue() async {
-    due = DueModel(
-      name: _nameController.text,
-      amount: double.tryParse(_amountController.text) ?? 0,
-      dayOfMonth: int.tryParse(_dateController.text) ?? 0,
-      recurring: _isRecurring,
-      recurringInterval: _isRecurring
-          ? int.tryParse(_intervalController.text) ?? 0
-          : 0, // Only set if recurring
+  double _principalAmount() => double.tryParse(_principalCtrl.text.trim()) ?? 0;
+
+  int _installmentCount() => int.tryParse(_installmentsCtrl.text.trim()) ?? 0;
+
+  List<InstallmentPreview> _preview() {
+    return controller.buildPreview(
+      amount: _principalAmount(),
+      installmentCount: _installmentCount(),
+      billingDays: _billingDays,
+      startDate: _startDate,
+    );
+  }
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final initial = _startDate ?? now;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 2, 1, 1),
+      lastDate: DateTime(now.year + 10, 12, 31),
     );
 
-    await controller.createDue(due);
+    if (!mounted) return;
+    if (picked == null) return;
+
+    setState(() {
+      _startDate = picked;
+    });
+  }
+
+  Future<void> _submit() async {
+    final ok = _formKey.currentState?.validate() ?? false;
+    if (!ok) return;
+
+    if (_billingDays.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Set at least one billing day in Settings first.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await controller.submitSplitDue(
+        name: _titleCtrl.text.trim(),
+        amount: _principalAmount(),
+        installmentCount: _installmentCount(),
+        billingDays: _billingDays,
+        startDate: _startDate,
+      );
+
+      if (!mounted) return;
+
+      _titleCtrl.clear();
+      _principalCtrl.clear();
+      _installmentsCtrl.text = '3';
+      setState(() {
+        _startDate = null;
+      });
+
+      Navigator.pushReplacementNamed(context, '/overview');
+    } catch (_) {
+      if (!mounted) return;
+      final msg = controller.errorMessage ?? 'Failed to create loan split.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final preview = _preview();
+
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh billing days',
+            onPressed: _refreshBillingDays,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          IconButton(
+            tooltip: 'Settings',
+            onPressed: () => Navigator.pushReplacementNamed(context, '/settings'),
+            icon: const Icon(Icons.settings_rounded),
+          ),
+        ],
       ),
-      drawer: Drawer(
-        child: ListView(
-          children: [
-            ListTile(
-              title: Text('Home'),
-              onTap: () {
-                Navigator.pop(context); // Close drawer
-                // Navigate if needed
-              },
-            ),
-            ListTile(
-              title: Text('Overview'),
-              onTap: () {
-                Navigator.pop(context);
-                // Navigator.push(
-                //   context,
-                //   MaterialPageRoute(builder: (context) => OverviewPage()),
-                // );
-                Navigator.pushNamed(context, '/overview');
-              },
-            ),
-            ListTile(
-              title: Text('Settings'),
-              onTap: () {
-                Navigator.pop(context);
-                // Navigator.push(
-                //   context,
-                //   MaterialPageRoute(builder: (context) => SettingsPage()),
-                // );
-                Navigator.pushNamed(context, '/settings');
-              },
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Padding(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          // mainAxisAlignment: .center,
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            spacing: 10,
-            children: [
-              // const Text('You have pushed the button this many times:'),
-              // Text(
-              //   '$_counter',
-              //   style: Theme.of(context).textTheme.headlineMedium,
-              // ),
-              Text(
-                'Add a new due',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Column(
-                  spacing: 8,
+      drawer: const AppDrawer(current: '/'),
+      body: ListenableBuilder(
+        listenable: controller,
+        builder: (context, child) {
+          return SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Row(
                   children: [
-                    TextField(
-                      key: const Key('nameField'),
-                      controller: _nameController, // Bind controller
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Title',
-                        hintText: 'Enter the title of your due',
-                        hintStyle: TextStyle(color: Colors.grey),
+                    Expanded(
+                      child: Text(
+                        'Create loan split',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    TextField(
-                      key: const Key('amountField'),
-                      controller: _amountController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Amount',
-                        hintText: 'Enter the amount of your due',
-                        hintStyle: TextStyle(color: Colors.grey),
+                    if (controller.isLoading)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
                       ),
-                    ),
-                    TextField(
-                      key: const Key('dateField'),
-                      controller: _dateController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Date',
-                        hintText: 'Enter the date of your due',
-                        hintStyle: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isRecurring = !_isRecurring;
-                        });
-                      },
-                      child: Row(
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Checkbox(value: _isRecurring, onChanged: null),
-                          const Text("Recurring"),
+                          TextFormField(
+                            key: const Key('titleField'),
+                            controller: _titleCtrl,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Title',
+                              hintText: 'e.g., Motorcycle loan',
+                              prefixIcon: Icon(Icons.title_rounded),
+                            ),
+                            validator: (v) {
+                              final s = (v ?? '').trim();
+                              if (s.isEmpty) return 'Title is required';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            key: const Key('principalField'),
+                            controller: _principalCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Principal amount (PHP)',
+                              hintText: 'e.g., 5000',
+                              prefixIcon: Icon(Icons.payments_rounded),
+                            ),
+                            validator: (v) {
+                              final amt = double.tryParse((v ?? '').trim());
+                              if (amt == null || amt <= 0) return 'Enter a valid amount';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  key: const Key('installmentsField'),
+                                  controller: _installmentsCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Installments',
+                                    hintText: 'e.g., 3',
+                                    prefixIcon: Icon(Icons.format_list_numbered_rounded),
+                                  ),
+                                  validator: (v) {
+                                    final n = int.tryParse((v ?? '').trim());
+                                    if (n == null || n < 1) return 'Must be at least 1';
+                                    if (n > 120) return 'Too many installments';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _pickStartDate,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: InputDecorator(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Start date (optional)',
+                                      prefixIcon: Icon(Icons.event_rounded),
+                                    ),
+                                    child: Text(
+                                      _startDate == null ? 'Today' : formatYmd(_startDate!),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Billing days',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => Navigator.pushReplacementNamed(context, '/settings'),
+                                icon: const Icon(Icons.tune_rounded),
+                                label: const Text('Edit'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (_loadingBillingDays)
+                            const LinearProgressIndicator(minHeight: 3),
+                          if (!_loadingBillingDays && _billingDays.isEmpty)
+                            Text(
+                              'No billing days set. Add at least one in Settings.',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                            ),
+                          if (!_loadingBillingDays && _billingDays.isNotEmpty)
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final d in _billingDays)
+                                  Chip(
+                                    label: Text(d.toString()),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                              ],
+                            ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: controller.isLoading ? null : _submit,
+                              icon: const Icon(Icons.add_circle_outline_rounded),
+                              label: const Text('Create'),
+                            ),
+                          ),
+                          if (controller.errorMessage != null) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              controller.errorMessage!,
+                              style: TextStyle(color: Theme.of(context).colorScheme.error),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    if (_isRecurring)
-                      TextField(
-                        key: const Key('intervalField'),
-                        controller: _intervalController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Recurring',
-                          hintText: 'How often does this due recur?',
-                          hintStyle: TextStyle(color: Colors.grey),
-                        ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Preview',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                    Row(
-                      spacing: 10,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            _resetForm();
-                          },
-                          child: const Text('Clear'),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                          ),
-                          onPressed: () {
-                            submitDue();
-                            Navigator.pushNamed(context, '/overview');
-                          },
-                          child: const Text(
-                            'Submit',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
                     ),
+                    if (preview.isNotEmpty)
+                      Text(
+                        '${preview.length} items',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 8),
+                if (preview.isEmpty)
+                  Text(
+                    'Enter a principal amount, installment count, and configure billing days to see a preview.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  )
+                else
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (final p in preview)
+                          ListTile(
+                            dense: true,
+                            leading: CircleAvatar(
+                              radius: 16,
+                              child: Text(p.index.toString()),
+                            ),
+                            title: Text(formatPhp(p.amount)),
+                            subtitle: Text('Due ${formatYmd(p.dueDate)}'),
+                            trailing: Text('${p.index}/${p.count}'),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: _incrementCounter,
-      //   tooltip: 'Increment',
-      //   child: const Icon(Icons.add),
-      // ),
     );
   }
 }

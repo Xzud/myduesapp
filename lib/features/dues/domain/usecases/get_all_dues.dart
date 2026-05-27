@@ -7,61 +7,30 @@ class GetAllDues {
 
   Future<List<MonthlyDue>> call() async {
     final result = await repository.getDues();
-
-    List<MonthlyDue> dues = [];
-
     if (result.isEmpty) {
-      print('No dues found');
       return [];
     }
 
-    for (var currentDue in result) {
-      // TODO next step add day as to tell which billing period to settle
-      if (dues.isEmpty) {
-        dues.add(
-          MonthlyDue(
-            month: currentDue.getMonthYear(),
-            dues: [
-              Due(
-                name: currentDue.name,
-                price: currentDue.amount,
-                paid: currentDue.paid,
-              ),
-            ],
-          ),
-        );
-        continue;
-      } else {
-        for (var due in dues) {
-          if (due.month == currentDue.getMonthYear()) {
-            due.dues.add(
-              Due(
-                name: currentDue.name,
-                price: currentDue.amount,
-                paid: currentDue.paid,
-              ),
-            );
-            break;
-          } else {
-            dues.add(
-              MonthlyDue(
-                month: currentDue.getMonthYear(),
-                dues: [
-                  Due(
-                    name: currentDue.name,
-                    price: currentDue.amount,
-                    paid: currentDue.paid,
-                  ),
-                ],
-              ),
-            );
-            break;
-          }
-        }
-      }
+    final map = <String, MonthlyDue>{};
+
+    for (final currentDue in result) {
+      final key = currentDue.getMonthYear();
+      map.putIfAbsent(key, () => MonthlyDue(month: key, dues: []));
+      map[key]!.dues.add(
+        Due(
+          id: currentDue.id ?? 0,
+          loanId: currentDue.loanId,
+          name: currentDue.name,
+          price: currentDue.amount,
+          paid: currentDue.paid,
+          installmentIndex: currentDue.installmentIndex,
+          installmentCount: currentDue.installmentCount,
+          dueDate: currentDue.dueDate,
+        ),
+      );
     }
 
-    return dues;
+    return map.values.toList();
   }
 }
 
@@ -73,9 +42,23 @@ class MonthlyDue {
 }
 
 class Due {
+  int id;
+  String? loanId;
   String name;
   double price;
   bool paid;
+  int? installmentIndex;
+  int? installmentCount;
+  String? dueDate;
 
-  Due({required this.name, required this.price, required this.paid});
+  Due({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.paid,
+    this.loanId,
+    this.installmentIndex,
+    this.installmentCount,
+    this.dueDate,
+  });
 }

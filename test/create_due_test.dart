@@ -11,17 +11,19 @@ void main() {
   late MockDueRepository mockDueRepository;
 
   setUpAll(() {
-    registerFallbackValue(DueModel(
-      id: 0,
-      name: '',
-      amount: 0.0,
-      paid: false,
-      dayOfMonth: 0,
-      recurring: false,
-      recurringInterval: 1,
-      createdAt: '',
-      updatedAt: '',
-    ));
+    registerFallbackValue(
+      DueModel(
+        id: 0,
+        name: '',
+        amount: 0.0,
+        paid: false,
+        dayOfMonth: 0,
+        recurring: false,
+        recurringInterval: 1,
+        createdAt: '',
+        updatedAt: '',
+      ),
+    );
   });
 
   setUp(() {
@@ -42,9 +44,10 @@ void main() {
       createdAt: '2023-09-15 10:00:00',
       updatedAt: '2023-09-15 10:00:00',
     );
-    
-    when(() => mockDueRepository.createDue(any()))
-        .thenAnswer((_) async => Future.value());
+
+    when(
+      () => mockDueRepository.createDue(any()),
+    ).thenAnswer((_) async => Future.value());
 
     // Act
     await createDue(due);
@@ -66,9 +69,10 @@ void main() {
       createdAt: '2023-09-15 10:00:00',
       updatedAt: '2023-09-15 10:00:00',
     );
-    
-    when(() => mockDueRepository.createDue(any()))
-        .thenThrow(Exception('Database error'));
+
+    when(
+      () => mockDueRepository.createDue(any()),
+    ).thenThrow(Exception('Database error'));
 
     // Act & Assert
     expect(() async => await createDue(due), throwsException);
