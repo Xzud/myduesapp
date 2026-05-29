@@ -4,6 +4,8 @@ abstract class DueRepository {
   Future<List<DueEntity>> getDues();
   Future<void> createDue(DueEntity due);
   Future<void> createDues(List<DueEntity> dues);
+  Future<void> updateDue(DueEntity due);
+  Future<void> deleteDue(int id);
   Future<void> setPaid(int id, bool paid);
   Future<void> clearAllData();
 }

@@ -25,6 +25,14 @@ class DueRepositoryImpl implements DueRepository {
   }
 
   @override
+  Future<void> updateDue(DueEntity due) async {
+    await datasource.updateDue(DueModel.fromEntity(due));
+  }
+
+  @override
+  Future<void> deleteDue(int id) async => datasource.deleteDue(id);
+
+  @override
   Future<void> setPaid(int id, bool paid) async => datasource.setPaid(id, paid);
 
   @override

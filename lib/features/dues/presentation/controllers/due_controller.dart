@@ -1,12 +1,22 @@
 import 'package:flutter/foundation.dart';
+import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 
 class DueController extends ChangeNotifier {
   final GetAllDues getAllDues;
   final SetDuePaid setDuePaid;
+  final UpdateDue updateDue;
+  final DeleteDue deleteDue;
 
-  DueController({required this.getAllDues, required this.setDuePaid});
+  DueController({
+    required this.getAllDues,
+    required this.setDuePaid,
+    required this.updateDue,
+    required this.deleteDue,
+  });
 
   List<MonthlyDue> _dues = [];
   List<MonthlyDue> get dues => _dues;
@@ -33,21 +43,42 @@ class DueController extends ChangeNotifier {
   }
 
   Future<void> togglePaid({required int dueId, required bool paid}) async {
-    // Optimistic local update.
-    for (final month in _dues) {
-      for (final due in month.dues) {
-        if (due.id == dueId) {
-          due.paid = paid;
-        }
-      }
-    }
+    await _runMutation(() async {
+      await setDuePaid.call(dueId, paid);
+      _dues = await getAllDues.call();
+    });
+  }
+
+  Future<void> updateDueItem(DueEntity due) async {
+    await _runMutation(() async {
+      await updateDue.call(due);
+      _dues = await getAllDues.call();
+    });
+  }
+
+  Future<void> deleteDueItem(int dueId) async {
+    await _runMutation(() async {
+      await deleteDue.call(dueId);
+      _dues = await getAllDues.call();
+    });
+  }
+
+  Future<void> _runMutation(Future<void> Function() action) async {
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      await setDuePaid.call(dueId, paid);
+      await action();
     } catch (e) {
       _errorMessage = e.toString();
-      await fetchDues();
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('Due mutation failed: $e');
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 }

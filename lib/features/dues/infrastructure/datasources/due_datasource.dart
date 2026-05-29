@@ -6,6 +6,8 @@ abstract class DueDatasource {
   Future<List<DueModel>> getDues();
   Future<void> createDue(DueModel due);
   Future<void> createDues(List<DueModel> dues);
+  Future<void> updateDue(DueModel due);
+  Future<void> deleteDue(int id);
   Future<void> setPaid(int id, bool paid);
   Future<void> clearAllData();
 }
@@ -36,6 +38,24 @@ class DueDatasourceImpl implements DueDatasource {
         await txn.insert('dues', due.toMap());
       }
     });
+  }
+
+  @override
+  Future<void> updateDue(DueModel due) async {
+    if (due.id == null) {
+      throw ArgumentError('Cannot update a due without an id');
+    }
+
+    final values = due.toMap()
+      ..remove('id')
+      ..['updated_at'] = DateTime.now().toIso8601String();
+
+    await database.update('dues', values, where: 'id = ?', whereArgs: [due.id]);
+  }
+
+  @override
+  Future<void> deleteDue(int id) async {
+    await database.delete('dues', where: 'id = ?', whereArgs: [id]);
   }
 
   @override

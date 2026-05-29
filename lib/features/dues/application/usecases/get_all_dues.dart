@@ -27,6 +27,12 @@ class GetAllDues {
           installmentIndex: currentDue.installmentIndex,
           installmentCount: currentDue.installmentCount,
           dueDate: currentDue.dueDate,
+          dayOfMonth: currentDue.dayOfMonth,
+          recurring: currentDue.recurring,
+          recurringInterval: currentDue.recurringInterval,
+          complete: currentDue.complete,
+          createdAt: currentDue.createdAt,
+          updatedAt: currentDue.updatedAt,
         ),
       );
     }
@@ -81,15 +87,46 @@ class Due {
   int? installmentIndex;
   int? installmentCount;
   String? dueDate;
+  int dayOfMonth;
+  bool recurring;
+  int recurringInterval;
+  bool complete;
+  String? createdAt;
+  String? updatedAt;
 
   Due({
     required this.id,
     required this.name,
     required this.price,
     required this.paid,
+    required this.dayOfMonth,
     this.loanId,
     this.installmentIndex,
     this.installmentCount,
     this.dueDate,
+    this.recurring = false,
+    this.recurringInterval = 1,
+    this.complete = false,
+    this.createdAt,
+    this.updatedAt,
   });
+
+  DueEntity toEntity() {
+    return DueEntity(
+      id: id,
+      name: name,
+      amount: price,
+      recurring: recurring,
+      recurringInterval: recurringInterval,
+      dayOfMonth: dayOfMonth,
+      loanId: loanId,
+      installmentIndex: installmentIndex,
+      installmentCount: installmentCount,
+      dueDate: dueDate,
+      paid: paid,
+      complete: complete,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
 }

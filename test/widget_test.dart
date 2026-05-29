@@ -4,8 +4,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 import 'package:myduesapp/features/dues/presentation/pages/home.dart';
@@ -19,6 +21,10 @@ class _MockCreateSplitDue extends Mock implements CreateSplitDue {}
 class _MockGetAllDues extends Mock implements GetAllDues {}
 
 class _MockSetDuePaid extends Mock implements SetDuePaid {}
+
+class _MockUpdateDue extends Mock implements UpdateDue {}
+
+class _MockDeleteDue extends Mock implements DeleteDue {}
 
 class _FakeDueFormController extends DueFormController {
   _FakeDueFormController()
@@ -53,6 +59,8 @@ void main() {
       DueController(
         getAllDues: _MockGetAllDues(),
         setDuePaid: _MockSetDuePaid(),
+        updateDue: _MockUpdateDue(),
+        deleteDue: _MockDeleteDue(),
       ),
     );
   });

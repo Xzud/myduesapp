@@ -1,59 +1,346 @@
 import 'package:flutter/material.dart';
 
+import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
+    show Due, MonthlyDue;
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
+import 'package:myduesapp/injection_container.dart';
 
-class AllDuesShowcasePage extends StatelessWidget {
+class AllDuesShowcasePage extends StatefulWidget {
   const AllDuesShowcasePage({super.key});
+
+  @override
+  State<AllDuesShowcasePage> createState() => _AllDuesShowcasePageState();
+}
+
+class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
+  late final DueController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = sl<DueController>();
+    controller.fetchDues();
+  }
+
+  Map<String, List<Due>> _groupByLoan(List<Due> dues) {
+    final out = <String, List<Due>>{};
+    for (final due in dues) {
+      final key = due.loanId ?? 'single:${due.id}';
+      out.putIfAbsent(key, () => []);
+      out[key]!.add(due);
+    }
+
+    for (final entry in out.entries) {
+      entry.value.sort((a, b) {
+        final ad = DateTime.tryParse(a.dueDate ?? '') ?? DateTime(0);
+        final bd = DateTime.tryParse(b.dueDate ?? '') ?? DateTime(0);
+        final c = ad.compareTo(bd);
+        if (c != 0) return c;
+        return a.id.compareTo(b.id);
+      });
+    }
+
+    return out;
+  }
+
+  bool _loanComplete(List<Due> dues) =>
+      dues.isNotEmpty && dues.every((d) => d.paid);
+
+  int _paidCount(List<Due> dues) => dues.where((d) => d.paid).length;
+
+  String _loanTitle(List<Due> dues) {
+    if (dues.isEmpty) return '';
+    return dues.first.name;
+  }
+
+  Future<void> _togglePaid(Due due, bool paid) async {
+    await controller.togglePaid(dueId: due.id, paid: paid);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _editDue(Due due) async {
+    final nameCtrl = TextEditingController(text: due.name);
+    final amountCtrl = TextEditingController(
+      text: due.price.toStringAsFixed(2),
+    );
+    bool paid = due.paid;
+
+    final updated = await showDialog<DueEntity>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit due'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: amountCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(labelText: 'Amount'),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: paid,
+                      title: const Text('Paid'),
+                      onChanged: (value) => setState(() => paid = value),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final name = nameCtrl.text.trim();
+                    final amount = double.tryParse(amountCtrl.text.trim());
+                    if (name.isEmpty || amount == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Enter a valid name and amount.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.pop(
+                      context,
+                      _buildUpdatedEntity(
+                        due,
+                        name: name,
+                        amount: amount,
+                        paid: paid,
+                      ),
+                    );
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nameCtrl.dispose();
+    amountCtrl.dispose();
+
+    if (!mounted || updated == null) return;
+    await controller.updateDueItem(updated);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _deleteDue(Due due) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete due?'),
+          content: Text(
+            'This will permanently delete ${due.name}. This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !mounted) return;
+    await controller.deleteDueItem(due.id);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  DueEntity _buildUpdatedEntity(
+    Due due, {
+    required String name,
+    required double amount,
+    required bool paid,
+  }) {
+    final now = DateTime.now().toIso8601String();
+    return DueEntity(
+      id: due.id,
+      name: name,
+      amount: amount,
+      recurring: due.recurring,
+      recurringInterval: due.recurringInterval,
+      dayOfMonth: due.dayOfMonth,
+      loanId: due.loanId,
+      installmentIndex: due.installmentIndex,
+      installmentCount: due.installmentCount,
+      dueDate: due.dueDate,
+      paid: paid,
+      complete: due.complete,
+      createdAt: due.createdAt,
+      updatedAt: now,
+    );
+  }
+
+  void _showErrorIfAny() {
+    final message = controller.errorMessage;
+    if (message == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('All Dues')),
+      appBar: AppBar(
+        title: const Text('All Dues'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: controller.fetchDues,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       drawer: const AppDrawer(current: '/all-dues'),
-      body: const SafeArea(child: _AllDuesShowcaseBody()),
+      body: ListenableBuilder(
+        listenable: controller,
+        builder: (context, child) {
+          if (controller.isLoading && controller.dues.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (controller.errorMessage != null && controller.dues.isEmpty) {
+            return Center(child: Text('Error: ${controller.errorMessage}'));
+          }
+
+          final months = controller.dues;
+          if (months.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No dues found yet.'),
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: controller.fetchDues,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'All dues',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${months.fold<int>(0, (sum, month) => sum + month.dues.length)} tracked dues across ${months.length} month(s).',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                for (final month in months) ...[
+                  _MonthSection(
+                    month: month,
+                    groupByLoan: _groupByLoan,
+                    loanComplete: _loanComplete,
+                    paidCount: _paidCount,
+                    loanTitle: _loanTitle,
+                    onTogglePaid: _togglePaid,
+                    onEditDue: _editDue,
+                    onDeleteDue: _deleteDue,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
-class _AllDuesShowcaseBody extends StatelessWidget {
-  const _AllDuesShowcaseBody();
+typedef TogglePaid = Future<void> Function(Due due, bool paid);
+typedef EditDue = Future<void> Function(Due due);
+typedef DeleteDue = Future<void> Function(Due due);
+typedef GroupByLoan = Map<String, List<Due>> Function(List<Due> dues);
+typedef LoanComplete = bool Function(List<Due> dues);
+typedef PaidCount = int Function(List<Due> dues);
+typedef LoanTitle = String Function(List<Due> dues);
+
+class _MonthSection extends StatelessWidget {
+  final MonthlyDue month;
+  final GroupByLoan groupByLoan;
+  final LoanComplete loanComplete;
+  final PaidCount paidCount;
+  final LoanTitle loanTitle;
+  final TogglePaid onTogglePaid;
+  final EditDue onEditDue;
+  final DeleteDue onDeleteDue;
+
+  const _MonthSection({
+    required this.month,
+    required this.groupByLoan,
+    required this.loanComplete,
+    required this.paidCount,
+    required this.loanTitle,
+    required this.onTogglePaid,
+    required this.onEditDue,
+    required this.onDeleteDue,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dues = _mockDues;
+    final groups = groupByLoan(month.dues);
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'All Dues',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            Text(
-              '${dues.length} items',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'A due-level view with total amount, payment progress, and monthly segmentation.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 16),
-        for (final due in dues) ...[
-          _AllDueCard(
-            due: due,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => DueOverviewPage(due: due),
-              ),
-            ),
+        Text(month.month, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        for (final entry in groups.entries) ...[
+          _LoanCard(
+            dues: entry.value,
+            title: loanTitle(entry.value),
+            complete: loanComplete(entry.value),
+            paid: paidCount(entry.value),
+            total: entry.value.length,
+            onTogglePaid: onTogglePaid,
+            onEditDue: onEditDue,
+            onDeleteDue: onDeleteDue,
           ),
           const SizedBox(height: 12),
         ],
@@ -62,572 +349,129 @@ class _AllDuesShowcaseBody extends StatelessWidget {
   }
 }
 
-class DueOverviewPage extends StatelessWidget {
-  final AllDueShowcase due;
+class _LoanCard extends StatelessWidget {
+  final List<Due> dues;
+  final String title;
+  final bool complete;
+  final int paid;
+  final int total;
+  final TogglePaid onTogglePaid;
+  final EditDue onEditDue;
+  final DeleteDue onDeleteDue;
 
-  const DueOverviewPage({super.key, required this.due});
+  const _LoanCard({
+    required this.dues,
+    required this.title,
+    required this.complete,
+    required this.paid,
+    required this.total,
+    required this.onTogglePaid,
+    required this.onEditDue,
+    required this.onDeleteDue,
+  });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final topColor = due.isComplete ? Colors.green.shade600 : cs.outlineVariant;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(due.title)),
-      drawer: const AppDrawer(current: '/all-dues'),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(height: 4, color: topColor),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    due.title,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    due.note,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            _StatusChip(due: due),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          formatPhp(due.totalAmount),
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${due.paidMonths}/${due.totalMonths} months paid',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 12),
-                        LinearProgressIndicator(
-                          minHeight: 4,
-                          value: due.progress,
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            _InfoPill(
-                              label: 'Monthly amount',
-                              value: formatPhp(due.monthlyAmount),
-                            ),
-                            _InfoPill(
-                              label: 'Remaining',
-                              value: formatPhp(due.remainingAmount),
-                            ),
-                            _InfoPill(
-                              label: 'Start date',
-                              value: formatYmd(due.startDate),
-                            ),
-                            _InfoPill(
-                              label: 'Next due',
-                              value: formatYmd(due.nextDueDate),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Monthly segmentation',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            for (final segment in due.segments) ...[
-              _SegmentCard(segment: segment),
-              const SizedBox(height: 10),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AllDueCard extends StatelessWidget {
-  final AllDueShowcase due;
-  final VoidCallback onTap;
-
-  const _AllDueCard({required this.due, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final topColor = due.isComplete
-        ? Colors.green.shade600
-        : Colors.grey.shade400;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(height: 4, color: topColor),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          due.title,
-                          style: Theme.of(context).textTheme.titleMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      _StatusChip(due: due),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    formatPhp(due.totalAmount),
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _Metric(
-                          label: 'Months to pay',
-                          value: '${due.totalMonths}',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _Metric(
-                          label: 'Months paid',
-                          value: '${due.paidMonths}',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(minHeight: 4, value: due.progress),
-                  const SizedBox(height: 8),
-                  Text(
-                    due.isComplete
-                        ? 'Completed'
-                        : '${due.remainingMonths} month(s) left',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SegmentCard extends StatelessWidget {
-  final MonthlySegment segment;
-
-  const _SegmentCard({required this.segment});
-
-  @override
-  Widget build(BuildContext context) {
-    final topColor = segment.paid
-        ? Colors.green.shade600
-        : Colors.grey.shade400;
+    final headerColor = complete
+        ? cs.primaryContainer
+        : cs.surfaceContainerHighest;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 4, color: topColor),
-          Padding(
-            padding: const EdgeInsets.all(16),
+          Container(
+            width: double.infinity,
+            color: headerColor,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Month ${segment.monthIndex}',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Due ${formatYmd(segment.dueDate)}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      if (segment.paidOn != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Paid on ${formatYmd(segment.paidOn!)}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(formatPhp(segment.amount)),
-                    const SizedBox(height: 4),
-                    _StatusChipText(paid: segment.paid),
-                  ],
+                const SizedBox(width: 8),
+                Text(
+                  '$paid/$total',
+                  style: Theme.of(context).textTheme.labelLarge,
                 ),
               ],
             ),
           ),
+          LinearProgressIndicator(
+            minHeight: 3,
+            value: total == 0 ? 0 : paid / total,
+          ),
+          const SizedBox(height: 4),
+          for (final due in dues)
+            _DueRow(
+              due: due,
+              onTogglePaid: onTogglePaid,
+              onEditDue: onEditDue,
+              onDeleteDue: onDeleteDue,
+            ),
         ],
       ),
     );
   }
 }
 
-class _Metric extends StatelessWidget {
-  final String label;
-  final String value;
+class _DueRow extends StatelessWidget {
+  final Due due;
+  final TogglePaid onTogglePaid;
+  final EditDue onEditDue;
+  final DeleteDue onDeleteDue;
 
-  const _Metric({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 4),
-            Text(value, style: Theme.of(context).textTheme.titleSmall),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoPill extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoPill({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return SizedBox(
-      width: 150,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: cs.outlineVariant),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleSmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final AllDueShowcase due;
-
-  const _StatusChip({required this.due});
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = due.isComplete ? Colors.green.shade100 : Colors.grey.shade200;
-    final fg = due.isComplete ? Colors.green.shade900 : Colors.grey.shade800;
-    final label = due.isComplete ? 'Completed' : 'To pay';
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusChipText extends StatelessWidget {
-  final bool paid;
-
-  const _StatusChipText({required this.paid});
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = paid ? Colors.green.shade100 : Colors.grey.shade200;
-    final fg = paid ? Colors.green.shade900 : Colors.grey.shade800;
-    final label = paid ? 'Paid' : 'Pending';
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: fg),
-        ),
-      ),
-    );
-  }
-}
-
-class AllDueShowcase {
-  final String id;
-  final String title;
-  final double totalAmount;
-  final int totalMonths;
-  final int paidMonths;
-  final DateTime startDate;
-  final String note;
-  final List<MonthlySegment> segments;
-
-  const AllDueShowcase({
-    required this.id,
-    required this.title,
-    required this.totalAmount,
-    required this.totalMonths,
-    required this.paidMonths,
-    required this.startDate,
-    required this.note,
-    required this.segments,
+  const _DueRow({
+    required this.due,
+    required this.onTogglePaid,
+    required this.onEditDue,
+    required this.onDeleteDue,
   });
 
-  double get monthlyAmount => totalAmount / totalMonths;
+  String _subtitle(Due d) {
+    final dt = DateTime.tryParse(d.dueDate ?? '');
+    if (dt == null) return 'No due date';
+    return 'Due ${formatYmd(dt)}';
+  }
 
-  double get paidAmount => monthlyAmount * paidMonths;
-
-  double get remainingAmount => totalAmount - paidAmount;
-
-  int get remainingMonths =>
-      totalMonths > paidMonths ? totalMonths - paidMonths : 0;
-
-  bool get isComplete => paidMonths >= totalMonths;
-
-  double get progress => totalMonths == 0 ? 0 : paidMonths / totalMonths;
-
-  DateTime get nextDueDate {
-    for (final segment in segments) {
-      if (!segment.paid) return segment.dueDate;
+  String _title(Due d) {
+    if (d.installmentIndex != null && d.installmentCount != null) {
+      return 'Installment ${d.installmentIndex}/${d.installmentCount}';
     }
-    return segments.isNotEmpty ? segments.last.dueDate : startDate;
+    return d.name;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      leading: Checkbox(
+        value: due.paid,
+        onChanged: due.id <= 0
+            ? null
+            : (value) => onTogglePaid(due, value ?? false),
+      ),
+      title: Text(_title(due)),
+      subtitle: Text(_subtitle(due)),
+      trailing: PopupMenuButton<String>(
+        onSelected: (value) {
+          if (value == 'edit') {
+            onEditDue(due);
+          } else if (value == 'delete') {
+            onDeleteDue(due);
+          }
+        },
+        itemBuilder: (context) => const [
+          PopupMenuItem(value: 'edit', child: Text('Edit')),
+          PopupMenuItem(value: 'delete', child: Text('Delete')),
+        ],
+      ),
+    );
   }
 }
-
-class MonthlySegment {
-  final int monthIndex;
-  final DateTime dueDate;
-  final double amount;
-  final bool paid;
-  final DateTime? paidOn;
-
-  const MonthlySegment({
-    required this.monthIndex,
-    required this.dueDate,
-    required this.amount,
-    required this.paid,
-    this.paidOn,
-  });
-}
-
-final List<AllDueShowcase> _mockDues = [
-  AllDueShowcase(
-    id: 'mc-001',
-    title: 'Motorcycle loan',
-    totalAmount: 5000,
-    totalMonths: 5,
-    paidMonths: 5,
-    startDate: DateTime(2026, 1, 15),
-    note: 'Fully settled installment loan for transport.',
-    segments: [
-      MonthlySegment(
-        monthIndex: 1,
-        dueDate: DateTime(2026, 1, 15),
-        amount: 1000,
-        paid: true,
-        paidOn: DateTime(2026, 1, 15),
-      ),
-      MonthlySegment(
-        monthIndex: 2,
-        dueDate: DateTime(2026, 2, 15),
-        amount: 1000,
-        paid: true,
-        paidOn: DateTime(2026, 2, 14),
-      ),
-      MonthlySegment(
-        monthIndex: 3,
-        dueDate: DateTime(2026, 3, 15),
-        amount: 1000,
-        paid: true,
-        paidOn: DateTime(2026, 3, 15),
-      ),
-      MonthlySegment(
-        monthIndex: 4,
-        dueDate: DateTime(2026, 4, 15),
-        amount: 1000,
-        paid: true,
-        paidOn: DateTime(2026, 4, 16),
-      ),
-      MonthlySegment(
-        monthIndex: 5,
-        dueDate: DateTime(2026, 5, 15),
-        amount: 1000,
-        paid: true,
-        paidOn: DateTime(2026, 5, 15),
-      ),
-    ],
-  ),
-  AllDueShowcase(
-    id: 'pl-002',
-    title: 'Phone plan balance',
-    totalAmount: 7200,
-    totalMonths: 6,
-    paidMonths: 3,
-    startDate: DateTime(2026, 2, 5),
-    note: 'Ongoing balance with partial payments recorded.',
-    segments: [
-      MonthlySegment(
-        monthIndex: 1,
-        dueDate: DateTime(2026, 2, 5),
-        amount: 1200,
-        paid: true,
-        paidOn: DateTime(2026, 2, 5),
-      ),
-      MonthlySegment(
-        monthIndex: 2,
-        dueDate: DateTime(2026, 3, 5),
-        amount: 1200,
-        paid: true,
-        paidOn: DateTime(2026, 3, 4),
-      ),
-      MonthlySegment(
-        monthIndex: 3,
-        dueDate: DateTime(2026, 4, 5),
-        amount: 1200,
-        paid: true,
-        paidOn: DateTime(2026, 4, 5),
-      ),
-      MonthlySegment(
-        monthIndex: 4,
-        dueDate: DateTime(2026, 5, 5),
-        amount: 1200,
-        paid: false,
-      ),
-      MonthlySegment(
-        monthIndex: 5,
-        dueDate: DateTime(2026, 6, 5),
-        amount: 1200,
-        paid: false,
-      ),
-      MonthlySegment(
-        monthIndex: 6,
-        dueDate: DateTime(2026, 7, 5),
-        amount: 1200,
-        paid: false,
-      ),
-    ],
-  ),
-  AllDueShowcase(
-    id: 'ed-003',
-    title: 'Emergency fund loan',
-    totalAmount: 3000,
-    totalMonths: 3,
-    paidMonths: 1,
-    startDate: DateTime(2026, 4, 10),
-    note: 'Short-term loan with remaining monthly payments.',
-    segments: [
-      MonthlySegment(
-        monthIndex: 1,
-        dueDate: DateTime(2026, 4, 10),
-        amount: 1000,
-        paid: true,
-        paidOn: DateTime(2026, 4, 10),
-      ),
-      MonthlySegment(
-        monthIndex: 2,
-        dueDate: DateTime(2026, 5, 10),
-        amount: 1000,
-        paid: false,
-      ),
-      MonthlySegment(
-        monthIndex: 3,
-        dueDate: DateTime(2026, 6, 10),
-        amount: 1000,
-        paid: false,
-      ),
-    ],
-  ),
-];

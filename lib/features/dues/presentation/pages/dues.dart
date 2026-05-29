@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due, MonthlyDue;
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
@@ -26,10 +27,10 @@ class _DuesPageState extends State<DuesPage> {
 
   Map<String, List<Due>> _groupByLoan(List<Due> dues) {
     final out = <String, List<Due>>{};
-    for (final d in dues) {
-      final key = d.loanId ?? 'single:${d.id}';
+    for (final due in dues) {
+      final key = due.loanId ?? 'single:${due.id}';
       out.putIfAbsent(key, () => []);
-      out[key]!.add(d);
+      out[key]!.add(due);
     }
 
     for (final entry in out.entries) {
@@ -53,6 +54,160 @@ class _DuesPageState extends State<DuesPage> {
   String _loanTitle(List<Due> dues) {
     if (dues.isEmpty) return '';
     return dues.first.name;
+  }
+
+  Future<void> _togglePaid(Due due, bool paid) async {
+    await controller.togglePaid(dueId: due.id, paid: paid);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _editDue(Due due) async {
+    final nameCtrl = TextEditingController(text: due.name);
+    final amountCtrl = TextEditingController(
+      text: due.price.toStringAsFixed(2),
+    );
+    bool paid = due.paid;
+
+    final updated = await showDialog<DueEntity>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit due'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: amountCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(labelText: 'Amount'),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: paid,
+                      title: const Text('Paid'),
+                      onChanged: (value) => setState(() => paid = value),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final name = nameCtrl.text.trim();
+                    final amount = double.tryParse(amountCtrl.text.trim());
+                    if (name.isEmpty || amount == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Enter a valid name and amount.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.pop(
+                      context,
+                      _buildUpdatedEntity(
+                        due,
+                        name: name,
+                        amount: amount,
+                        paid: paid,
+                      ),
+                    );
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nameCtrl.dispose();
+    amountCtrl.dispose();
+
+    if (!mounted || updated == null) return;
+    await controller.updateDueItem(updated);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _deleteDue(Due due) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete due?'),
+          content: Text(
+            'This will permanently delete ${due.name}. This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !mounted) return;
+    await controller.deleteDueItem(due.id);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  DueEntity _buildUpdatedEntity(
+    Due due, {
+    required String name,
+    required double amount,
+    required bool paid,
+  }) {
+    return DueEntity(
+      id: due.id,
+      name: name,
+      amount: amount,
+      recurring: due.recurring,
+      recurringInterval: due.recurringInterval,
+      dayOfMonth: due.dayOfMonth,
+      loanId: due.loanId,
+      installmentIndex: due.installmentIndex,
+      installmentCount: due.installmentCount,
+      dueDate: due.dueDate,
+      paid: paid,
+      complete: due.complete,
+      createdAt: due.createdAt,
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+  }
+
+  void _showErrorIfAny() {
+    final message = controller.errorMessage;
+    if (message == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -107,8 +262,9 @@ class _DuesPageState extends State<DuesPage> {
                   loanComplete: _loanComplete,
                   paidCount: _paidCount,
                   loanTitle: _loanTitle,
-                  onTogglePaid: (id, paid) =>
-                      controller.togglePaid(dueId: id, paid: paid),
+                  onTogglePaid: _togglePaid,
+                  onEditDue: _editDue,
+                  onDeleteDue: _deleteDue,
                 );
               },
             ),
@@ -119,14 +275,12 @@ class _DuesPageState extends State<DuesPage> {
   }
 }
 
-typedef TogglePaid = Future<void> Function(int dueId, bool paid);
-
+typedef TogglePaid = Future<void> Function(Due due, bool paid);
+typedef EditDue = Future<void> Function(Due due);
+typedef DeleteDue = Future<void> Function(Due due);
 typedef GroupByLoan = Map<String, List<Due>> Function(List<Due> dues);
-
 typedef LoanComplete = bool Function(List<Due> dues);
-
 typedef PaidCount = int Function(List<Due> dues);
-
 typedef LoanTitle = String Function(List<Due> dues);
 
 class _MonthSection extends StatelessWidget {
@@ -136,6 +290,8 @@ class _MonthSection extends StatelessWidget {
   final PaidCount paidCount;
   final LoanTitle loanTitle;
   final TogglePaid onTogglePaid;
+  final EditDue onEditDue;
+  final DeleteDue onDeleteDue;
 
   const _MonthSection({
     required this.month,
@@ -144,6 +300,8 @@ class _MonthSection extends StatelessWidget {
     required this.paidCount,
     required this.loanTitle,
     required this.onTogglePaid,
+    required this.onEditDue,
+    required this.onDeleteDue,
   });
 
   @override
@@ -167,6 +325,8 @@ class _MonthSection extends StatelessWidget {
                 paid: paidCount(entry.value),
                 total: entry.value.length,
                 onTogglePaid: onTogglePaid,
+                onEditDue: onEditDue,
+                onDeleteDue: onDeleteDue,
               ),
             ),
         ],
@@ -182,6 +342,8 @@ class _LoanCard extends StatelessWidget {
   final int paid;
   final int total;
   final TogglePaid onTogglePaid;
+  final EditDue onEditDue;
+  final DeleteDue onDeleteDue;
 
   const _LoanCard({
     required this.dues,
@@ -190,6 +352,8 @@ class _LoanCard extends StatelessWidget {
     required this.paid,
     required this.total,
     required this.onTogglePaid,
+    required this.onEditDue,
+    required this.onDeleteDue,
   });
 
   @override
@@ -231,20 +395,33 @@ class _LoanCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           for (final d in dues)
-            CheckboxListTile(
-              value: d.paid,
-              onChanged: d.id <= 0
-                  ? null
-                  : (v) => onTogglePaid(d.id, v ?? false),
+            ListTile(
+              dense: true,
+              leading: Checkbox(
+                value: d.paid,
+                onChanged: d.id <= 0
+                    ? null
+                    : (v) => onTogglePaid(d, v ?? false),
+              ),
               title: Text(
                 d.installmentIndex != null && d.installmentCount != null
                     ? 'Installment ${d.installmentIndex}/${d.installmentCount}'
-                    : 'Due',
+                    : d.name,
               ),
               subtitle: Text(_subtitle(d)),
-              secondary: Text(formatPhp(d.price)),
-              controlAffinity: ListTileControlAffinity.leading,
-              dense: true,
+              trailing: PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    onEditDue(d);
+                  } else if (value == 'delete') {
+                    onDeleteDue(d);
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+              ),
             ),
         ],
       ),
