@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 
 class MockCreateSplitDue extends Mock implements CreateSplitDue {}
@@ -36,6 +37,7 @@ void main() {
         installmentCount: any(named: 'installmentCount'),
         billingDays: any(named: 'billingDays'),
         startDate: any(named: 'startDate'),
+        interestPlan: any(named: 'interestPlan'),
       ),
     ).thenAnswer((_) async {});
 
@@ -55,6 +57,7 @@ void main() {
         installmentCount: 3,
         billingDays: [5, 15],
         startDate: null,
+        interestPlan: null,
       ),
     ).called(1);
   });
@@ -67,6 +70,7 @@ void main() {
         installmentCount: any(named: 'installmentCount'),
         billingDays: any(named: 'billingDays'),
         startDate: any(named: 'startDate'),
+        interestPlan: any(named: 'interestPlan'),
       ),
     ).thenAnswer((_) async {});
 
@@ -87,6 +91,44 @@ void main() {
         installmentCount: 3,
         billingDays: [5, 15],
         startDate: null,
+        interestPlan: null,
+      ),
+    ).called(1);
+  });
+
+  test('passes interest plan through when creating split loan', () async {
+    when(() => mockGetPaymentDates()).thenAnswer((_) async => ['5']);
+    when(
+      () => mockCreateSplitDue(
+        name: any(named: 'name'),
+        amount: any(named: 'amount'),
+        installmentCount: any(named: 'installmentCount'),
+        billingDays: any(named: 'billingDays'),
+        startDate: any(named: 'startDate'),
+        interestPlan: any(named: 'interestPlan'),
+      ),
+    ).thenAnswer((_) async {});
+
+    const interestPlan = InterestPlan(
+      mode: InterestMode.totalAmountDividedPerMonth,
+      value: 250,
+    );
+
+    await controller.createLoanSplit(
+      name: 'Loan A',
+      amount: 5000,
+      installmentCount: 3,
+      interestPlan: interestPlan,
+    );
+
+    verify(
+      () => mockCreateSplitDue(
+        name: 'Loan A',
+        amount: 5000,
+        installmentCount: 3,
+        billingDays: [5],
+        startDate: null,
+        interestPlan: interestPlan,
       ),
     ).called(1);
   });
@@ -100,6 +142,7 @@ void main() {
         installmentCount: any(named: 'installmentCount'),
         billingDays: any(named: 'billingDays'),
         startDate: any(named: 'startDate'),
+        interestPlan: any(named: 'interestPlan'),
       ),
     ).thenThrow(Exception('Failed to create split'));
 

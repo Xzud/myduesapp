@@ -81,27 +81,55 @@ void main() {
     expect(find.byKey(const Key('titleField')), findsOneWidget);
     expect(find.byKey(const Key('amountField')), findsOneWidget);
     expect(find.byKey(const Key('installmentsField')), findsOneWidget);
+    expect(find.byKey(const Key('interestField')), findsNothing);
 
     expect(find.text('Principal amount (PHP)'), findsOneWidget);
+    expect(find.text('Include Interest'), findsOneWidget);
     expect(find.text('Billing period selection'), findsOneWidget);
     expect(find.text('Selected periods: 5, 15'), findsOneWidget);
 
-    await tester.tap(find.text('Single').last);
-    await tester.pump();
-
-    expect(find.text('Selected period: 5'), findsOneWidget);
-
-    await tester.tap(find.text('Multiple').last);
-    await tester.pump();
-
-    expect(
-      find.text('Choose one or more billing periods to cycle through.'),
-      findsOneWidget,
+    await tester.scrollUntilVisible(
+      find.text('Monthly').last,
+      100,
+      scrollable: find.byType(Scrollable).first,
     );
-
     await tester.tap(find.text('Monthly'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Monthly amount to pay (PHP)'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Include Interest'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Include Interest'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('interestField')), findsOneWidget);
+    expect(find.text('Percentage'), findsOneWidget);
+    expect(find.text('Monthly fixed'), findsOneWidget);
+    expect(find.text('Total interest'), findsOneWidget);
+    expect(find.text('Interest percentage (%)'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Monthly fixed').last,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Monthly fixed').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Monthly interest amount (PHP)'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Total interest').last,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Total interest').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Total interest amount (PHP)'), findsOneWidget);
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
 class MockDueRepository extends Mock implements DueRepository {}
@@ -78,6 +79,93 @@ void main() {
       expect(captured.map((due) => due.dayOfMonth), [7, 15, 7]);
     },
   );
+
+  test(
+    'should add percentage interest before splitting installments',
+    () async {
+      when(() => mockDueRepository.createDues(any())).thenAnswer((_) async {});
+
+      await usecase.call(
+        name: 'Loan A',
+        amount: 3000,
+        installmentCount: 3,
+        billingDays: [7],
+        startDate: DateTime(2024, 1, 1),
+        interestPlan: const InterestPlan(
+          mode: InterestMode.percentage,
+          value: 10,
+        ),
+      );
+
+      final captured =
+          verify(
+                () => mockDueRepository.createDues(captureAny()),
+              ).captured.single
+              as List<DueEntity>;
+
+      expect(captured.map((due) => due.amount), [1100, 1100, 1100]);
+    },
+  );
+
+  test('should add monthly fixed interest to each installment', () async {
+    when(() => mockDueRepository.createDues(any())).thenAnswer((_) async {});
+
+    await usecase.call(
+      name: 'Loan A',
+      amount: 3000,
+      installmentCount: 3,
+      billingDays: [7],
+      startDate: DateTime(2024, 1, 1),
+      interestPlan: const InterestPlan(
+        mode: InterestMode.monthlyFixedAmount,
+        value: 50,
+      ),
+    );
+
+    final captured =
+        verify(() => mockDueRepository.createDues(captureAny())).captured.single
+            as List<DueEntity>;
+
+    expect(captured.map((due) => due.amount), [1050, 1050, 1050]);
+  });
+
+  test('should divide a total interest amount across installments', () async {
+    when(() => mockDueRepository.createDues(any())).thenAnswer((_) async {});
+
+    await usecase.call(
+      name: 'Loan A',
+      amount: 3000,
+      installmentCount: 3,
+      billingDays: [7],
+      startDate: DateTime(2024, 1, 1),
+      interestPlan: const InterestPlan(
+        mode: InterestMode.totalAmountDividedPerMonth,
+        value: 100,
+      ),
+    );
+
+    final captured =
+        verify(() => mockDueRepository.createDues(captureAny())).captured.single
+            as List<DueEntity>;
+
+    expect(captured.map((due) => due.amount), [1033.33, 1033.33, 1033.34]);
+  });
+
+  test('should reject invalid interest values', () async {
+    await expectLater(
+      () => usecase.call(
+        name: 'Loan A',
+        amount: 3000,
+        installmentCount: 3,
+        billingDays: [7],
+        interestPlan: const InterestPlan(
+          mode: InterestMode.percentage,
+          value: 0,
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
 
   test('should reject invalid billing day selections', () async {
     await expectLater(

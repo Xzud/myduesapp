@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due;
+import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
@@ -32,9 +33,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
   final _titleCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
+  final _interestCtrl = TextEditingController();
   final _installmentsCtrl = TextEditingController(text: '3');
 
   AmountInputMode _amountMode = AmountInputMode.principal;
+  bool _includeInterest = false;
+  InterestMode _interestMode = InterestMode.percentage;
   DateTime? _startDate;
   List<int> _billingDays = const [];
   final Set<int> _selectedBillingDays = <int>{};
@@ -57,6 +61,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     _titleCtrl.dispose();
     _amountCtrl.dispose();
+    _interestCtrl.dispose();
     _installmentsCtrl.dispose();
     super.dispose();
   }
@@ -141,6 +146,60 @@ class _MyHomePageState extends State<MyHomePage> {
         _selectedBillingDays.add(day);
       }
     });
+  }
+
+  String _interestLabel() {
+    switch (_interestMode) {
+      case InterestMode.percentage:
+        return 'Interest percentage (%)';
+      case InterestMode.monthlyFixedAmount:
+        return 'Monthly interest amount (PHP)';
+      case InterestMode.totalAmountDividedPerMonth:
+        return 'Total interest amount (PHP)';
+    }
+  }
+
+  String _interestHint() {
+    switch (_interestMode) {
+      case InterestMode.percentage:
+        return 'e.g., 10';
+      case InterestMode.monthlyFixedAmount:
+        return 'e.g., 500';
+      case InterestMode.totalAmountDividedPerMonth:
+        return 'e.g., 1500';
+    }
+  }
+
+  String? _interestHelperText() {
+    if (!_includeInterest) return null;
+
+    switch (_interestMode) {
+      case InterestMode.percentage:
+        return 'Applied to the principal before splitting.';
+      case InterestMode.monthlyFixedAmount:
+        return 'Added to every installment.';
+      case InterestMode.totalAmountDividedPerMonth:
+        return 'Divided evenly across installments.';
+    }
+  }
+
+  IconData _interestIcon() {
+    switch (_interestMode) {
+      case InterestMode.percentage:
+        return Icons.percent_rounded;
+      case InterestMode.monthlyFixedAmount:
+      case InterestMode.totalAmountDividedPerMonth:
+        return Icons.payments_rounded;
+    }
+  }
+
+  InterestPlan? _buildInterestPlan() {
+    if (!_includeInterest) return null;
+
+    final value = double.tryParse(_interestCtrl.text.trim());
+    if (value == null || value <= 0) return null;
+
+    return InterestPlan(mode: _interestMode, value: value);
   }
 
   void _changeBillingPeriodMode(_BillingPeriodSelectionMode mode) {
@@ -258,15 +317,19 @@ class _MyHomePageState extends State<MyHomePage> {
         billingDays: selectedBillingDays,
         startDate: _startDate,
         amountMode: _amountMode,
+        interestPlan: _buildInterestPlan(),
       );
 
       if (!mounted) return;
 
       _titleCtrl.clear();
       _amountCtrl.clear();
+      _interestCtrl.clear();
       _installmentsCtrl.text = '3';
       setState(() {
         _amountMode = AmountInputMode.principal;
+        _includeInterest = false;
+        _interestMode = InterestMode.percentage;
         _startDate = null;
       });
 
@@ -408,6 +471,69 @@ class _MyHomePageState extends State<MyHomePage> {
                               return null;
                             },
                           ),
+                          const SizedBox(height: 12),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Include Interest'),
+                            value: _includeInterest,
+                            onChanged: (value) {
+                              setState(() {
+                                _includeInterest = value;
+                              });
+                            },
+                          ),
+                          if (_includeInterest) ...[
+                            const SizedBox(height: 12),
+                            SegmentedButton<InterestMode>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: InterestMode.percentage,
+                                  label: Text('Percentage'),
+                                ),
+                                ButtonSegment(
+                                  value: InterestMode.monthlyFixedAmount,
+                                  label: Text('Monthly fixed'),
+                                ),
+                                ButtonSegment(
+                                  value:
+                                      InterestMode.totalAmountDividedPerMonth,
+                                  label: Text('Total interest'),
+                                ),
+                              ],
+                              selected: {_interestMode},
+                              showSelectedIcon: false,
+                              onSelectionChanged: (selection) {
+                                if (selection.isEmpty) return;
+                                setState(() {
+                                  _interestMode = selection.first;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              key: const Key('interestField'),
+                              controller: _interestCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: _interestLabel(),
+                                hintText: _interestHint(),
+                                helperText: _interestHelperText(),
+                                prefixIcon: Icon(_interestIcon()),
+                              ),
+                              validator: (v) {
+                                final value = double.tryParse((v ?? '').trim());
+                                if (!_includeInterest) return null;
+                                if (value == null || value <= 0) {
+                                  return 'Enter a valid interest value';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
                           const SizedBox(height: 12),
                           Row(
                             children: [

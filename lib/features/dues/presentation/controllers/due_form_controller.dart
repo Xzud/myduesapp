@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 
 enum AmountInputMode { principal, monthly }
 
@@ -61,6 +62,7 @@ class DueFormController extends ChangeNotifier {
     required double amount,
     required int installmentCount,
     DateTime? startDate,
+    InterestPlan? interestPlan,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -74,6 +76,7 @@ class DueFormController extends ChangeNotifier {
         installmentCount: installmentCount,
         billingDays: billingDays,
         startDate: startDate,
+        interestPlan: interestPlan,
       );
     } catch (e) {
       _errorMessage = e.toString();
@@ -133,6 +136,7 @@ class DueFormController extends ChangeNotifier {
     required List<int> billingDays,
     DateTime? startDate,
     AmountInputMode amountMode = AmountInputMode.principal,
+    InterestPlan? interestPlan,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -150,6 +154,7 @@ class DueFormController extends ChangeNotifier {
         installmentCount: installmentCount,
         billingDays: billingDays,
         startDate: startDate,
+        interestPlan: interestPlan,
       );
     } catch (e) {
       _errorMessage = e.toString();

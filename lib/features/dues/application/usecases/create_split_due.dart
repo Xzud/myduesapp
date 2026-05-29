@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
 class CreateSplitDue {
@@ -14,6 +15,7 @@ class CreateSplitDue {
     required int installmentCount,
     required List<int> billingDays,
     DateTime? startDate,
+    InterestPlan? interestPlan,
   }) async {
     if (installmentCount < 1) {
       throw ArgumentError('Installment count must be at least 1');
@@ -30,8 +32,14 @@ class CreateSplitDue {
 
     final loanId = _buildLoanId();
     final cents = (amount * 100).round();
-    final base = cents ~/ installmentCount;
-    final remainder = cents % installmentCount;
+    final principalParts = _splitCents(cents, installmentCount);
+    final interestParts = interestPlan == null
+        ? List<int>.filled(installmentCount, 0)
+        : _buildInterestParts(
+            interestPlan: interestPlan,
+            installmentCount: installmentCount,
+            principalCents: cents,
+          );
 
     final firstDate = startDate ?? DateTime.now();
     DateTime cursor = firstDate;
@@ -41,9 +49,7 @@ class CreateSplitDue {
       final dueDate = cleanDays.length == 1
           ? _nextDueDateForSingleBillingDay(cursor, cleanDays.single)
           : _nextDueDateForMultipleBillingDays(cursor, cleanDays);
-      final installmentCents = i == installmentCount - 1
-          ? base + remainder
-          : base;
+      final installmentCents = principalParts[i] + interestParts[i];
 
       dues.add(
         DueEntity(
@@ -64,6 +70,38 @@ class CreateSplitDue {
     }
 
     await repository.createDues(dues);
+  }
+
+  List<int> _buildInterestParts({
+    required InterestPlan interestPlan,
+    required int installmentCount,
+    required int principalCents,
+  }) {
+    if (interestPlan.value <= 0) {
+      throw ArgumentError('Interest value must be greater than zero');
+    }
+
+    switch (interestPlan.mode) {
+      case InterestMode.percentage:
+        final interestCents = (principalCents * interestPlan.value / 100)
+            .round();
+        return _splitCents(interestCents, installmentCount);
+      case InterestMode.monthlyFixedAmount:
+        final monthlyInterestCents = (interestPlan.value * 100).round();
+        return List<int>.filled(installmentCount, monthlyInterestCents);
+      case InterestMode.totalAmountDividedPerMonth:
+        final totalInterestCents = (interestPlan.value * 100).round();
+        return _splitCents(totalInterestCents, installmentCount);
+    }
+  }
+
+  List<int> _splitCents(int totalCents, int parts) {
+    final base = totalCents ~/ parts;
+    final remainder = totalCents % parts;
+    return List<int>.generate(
+      parts,
+      (index) => index == parts - 1 ? base + remainder : base,
+    );
   }
 
   String _buildLoanId() {
