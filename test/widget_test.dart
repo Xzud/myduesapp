@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
-import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
-import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
+    show Due, GetAllDues, MonthlyDue;
+import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/domain/entities/dashboard_summary_entity.dart';
+import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
+import 'package:myduesapp/features/dues/presentation/pages/create.dart';
 import 'package:myduesapp/features/dues/presentation/pages/home.dart';
 import 'package:myduesapp/injection_container.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -37,6 +42,91 @@ class _FakeDueFormController extends DueFormController {
   Future<List<int>> loadBillingDays() async => [5, 15];
 }
 
+class _FakeDueController extends DueController {
+  _FakeDueController(this._dues)
+    : super(
+        getAllDues: _MockGetAllDues(),
+        setDuePaid: _MockSetDuePaid(),
+        updateDue: _MockUpdateDue(),
+        deleteDue: _MockDeleteDue(),
+      );
+
+  final List<MonthlyDue> _dues;
+
+  @override
+  List<MonthlyDue> get dues => _dues;
+
+  @override
+  bool get isLoading => false;
+
+  @override
+  String? get errorMessage => null;
+
+  @override
+  Future<void> fetchDues() async {}
+}
+
+class _FakeDashboardController extends DashboardController {
+  _FakeDashboardController(this._summary)
+    : super(getDashboardSummary: _MockGetDashboardSummary());
+
+  final DashboardSummary _summary;
+
+  @override
+  DashboardSummary get summary => _summary;
+
+  @override
+  bool get isLoading => false;
+
+  @override
+  String? get errorMessage => null;
+
+  @override
+  Future<void> loadSummary({DateTime? referenceDate}) async {}
+}
+
+class _MockGetDashboardSummary extends Mock implements GetDashboardSummary {}
+
+DashboardSummary _dashboardSummary() {
+  return DashboardSummary(
+    totalCount: 10,
+    paidCount: 3,
+    unpaidCount: 7,
+    overdueCount: 2,
+    dueTodayCount: 1,
+    upcomingCount: 4,
+    recurringCount: 6,
+    oneTimeCount: 4,
+    completeCount: 2,
+    totalAmount: 25000,
+    paidAmount: 7000,
+    unpaidAmount: 18000,
+    overdueAmount: 4000,
+    monthlySummaries: const [
+      DashboardMonthlySummary(
+        month: 'May 2026',
+        totalCount: 6,
+        paidCount: 2,
+        unpaidCount: 4,
+        overdueCount: 1,
+        totalAmount: 15000,
+        paidAmount: 5000,
+        unpaidAmount: 10000,
+      ),
+      DashboardMonthlySummary(
+        month: 'June 2026',
+        totalCount: 4,
+        paidCount: 1,
+        unpaidCount: 3,
+        overdueCount: 1,
+        totalAmount: 10000,
+        paidAmount: 2000,
+        unpaidAmount: 8000,
+      ),
+    ],
+  );
+}
+
 void main() {
   setUpAll(() async {
     sqfliteFfiInit();
@@ -50,30 +140,105 @@ void main() {
     if (sl.isRegistered<DueFormController>()) {
       sl.unregister<DueFormController>();
     }
+    if (sl.isRegistered<DashboardController>()) {
+      sl.unregister<DashboardController>();
+    }
     if (sl.isRegistered<DueController>()) {
       sl.unregister<DueController>();
     }
 
     sl.registerSingleton<DueFormController>(_FakeDueFormController());
+    sl.registerSingleton<DashboardController>(
+      _FakeDashboardController(_dashboardSummary()),
+    );
     sl.registerSingleton<DueController>(
-      DueController(
-        getAllDues: _MockGetAllDues(),
-        setDuePaid: _MockSetDuePaid(),
-        updateDue: _MockUpdateDue(),
-        deleteDue: _MockDeleteDue(),
-      ),
+      _FakeDueController([
+        MonthlyDue(
+          month: 'May 2026',
+          dues: [
+            Due(
+              id: 1,
+              name: 'Laptop',
+              price: 12000,
+              paid: false,
+              dayOfMonth: 5,
+              dueDate: '2026-05-05',
+            ),
+            Due(
+              id: 2,
+              name: 'Phone',
+              price: 8000,
+              paid: true,
+              dayOfMonth: 15,
+              dueDate: '2026-05-15',
+            ),
+          ],
+        ),
+      ]),
     );
   });
 
-  testWidgets('home page renders loan split form', (WidgetTester tester) async {
+  testWidgets('home page renders dashboard analytics', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: MyHomePage(title: 'MyDues', autoLoadPreview: false),
+        home: HomePage(title: 'MyDues', autoLoadPreview: false),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('MyDues'), findsWidgets);
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Create due'), findsWidgets);
+    expect(find.text('Overview'), findsWidgets);
+    expect(find.text('Counts'), findsOneWidget);
+    expect(find.text('Paid'), findsWidgets);
+    expect(find.text('Unpaid'), findsWidgets);
+    expect(find.text('Overdue'), findsWidgets);
+    expect(find.text('Due today'), findsWidgets);
+    expect(find.text('Upcoming'), findsWidgets);
+    expect(find.text('Recurring'), findsWidgets);
+    expect(find.text('One-time'), findsWidgets);
+    expect(find.text('Complete'), findsWidgets);
+
+    await tester.scrollUntilVisible(
+      find.text('Amounts'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Amounts'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Monthly breakdown'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Monthly breakdown'), findsOneWidget);
+    expect(find.text('May 2026'), findsOneWidget);
+    expect(find.text('June 2026'), findsOneWidget);
+    expect(
+      find.text('Total 6 • Paid 2 • Unpaid 4 • Overdue 1'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Total 4 • Paid 1 • Unpaid 3 • Overdue 1'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('create page renders loan split form', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CreatePage(title: 'Create', autoLoadPreview: false),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Create'), findsWidgets);
     expect(find.text('Create loan split'), findsOneWidget);
     expect(find.text('Principal'), findsOneWidget);
     expect(find.text('Monthly'), findsOneWidget);

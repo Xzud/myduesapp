@@ -8,6 +8,7 @@ import 'package:myduesapp/features/dues/infrastructure/repositories/due_reposito
 import 'package:myduesapp/features/dues/infrastructure/repositories/settings_repository_impl.dart';
 import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
@@ -15,6 +16,7 @@ import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
@@ -50,6 +52,9 @@ Future<void> init() async {
   sl.registerLazySingleton<CreateSplitDue>(
     () => CreateSplitDue(repository: sl()),
   );
+  sl.registerLazySingleton<GetDashboardSummary>(
+    () => GetDashboardSummary(repository: sl()),
+  );
   sl.registerLazySingleton<SetDuePaid>(() => SetDuePaid(repository: sl()));
   sl.registerLazySingleton<UpdateDue>(() => UpdateDue(repository: sl()));
   sl.registerLazySingleton<DeleteDue>(() => DeleteDue(repository: sl()));
@@ -57,6 +62,7 @@ Future<void> init() async {
     () => ResetAllData(dueRepository: sl(), settingsRepository: sl()),
   );
 
+  sl.registerFactory(() => DashboardController(getDashboardSummary: sl()));
   sl.registerFactory(
     () => DueController(
       getAllDues: sl(),

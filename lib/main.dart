@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:myduesapp/features/dues/presentation/pages/home.dart';
+import 'package:myduesapp/features/dues/presentation/pages/create.dart';
 import 'package:myduesapp/features/dues/presentation/pages/dues.dart';
+import 'package:myduesapp/features/dues/presentation/pages/home.dart';
 import 'package:myduesapp/features/dues/presentation/pages/settings.dart';
 import 'package:myduesapp/injection_container.dart';
 
@@ -31,7 +32,8 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const MyHomePage(title: 'MyDues'),
+        '/': (context) => const HomePage(title: 'MyDues'),
+        '/create': (context) => const CreatePage(title: 'Create'),
         '/overview': (context) => const DuesPage(),
         '/settings': (context) => const SettingsPage(),
       },

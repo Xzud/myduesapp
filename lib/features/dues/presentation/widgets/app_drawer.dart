@@ -50,7 +50,7 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            item(label: 'Create', icon: Icons.add_rounded, route: '/'),
+            item(label: 'Create', icon: Icons.add_rounded, route: '/create'),
             item(
               label: 'Overview',
               icon: Icons.view_list_rounded,
