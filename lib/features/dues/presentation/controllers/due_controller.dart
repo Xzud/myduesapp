@@ -63,6 +63,20 @@ class DueController extends ChangeNotifier {
     });
   }
 
+  Future<void> deleteDueItems(List<int> dueIds) async {
+    final ids = dueIds.where((id) => id > 0).toSet().toList()..sort();
+    if (ids.isEmpty) {
+      return;
+    }
+
+    await _runMutation(() async {
+      for (final id in ids) {
+        await deleteDue.call(id);
+      }
+      _dues = await getAllDues.call();
+    });
+  }
+
   Future<void> _runMutation(Future<void> Function() action) async {
     _isLoading = true;
     _errorMessage = null;

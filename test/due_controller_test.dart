@@ -158,4 +158,43 @@ void main() {
     expect(controller.dues, isEmpty);
     verify(() => mockDeleteDue.call(1)).called(1);
   });
+
+  test('should delete multiple dues and refresh once', () async {
+    var calls = 0;
+    when(() => mockGetAllDues()).thenAnswer((_) async {
+      calls += 1;
+      return calls > 1
+          ? []
+          : [
+              MonthlyDue(
+                month: 'May 2026',
+                dues: [
+                  Due(
+                    id: 1,
+                    name: 'Loan A',
+                    price: 100,
+                    paid: false,
+                    dayOfMonth: 5,
+                  ),
+                  Due(
+                    id: 2,
+                    name: 'Loan A',
+                    price: 100,
+                    paid: false,
+                    dayOfMonth: 5,
+                  ),
+                ],
+              ),
+            ];
+    });
+    when(() => mockDeleteDue.call(any())).thenAnswer((_) async {});
+
+    await controller.fetchDues();
+    await controller.deleteDueItems([2, 1, 2]);
+
+    expect(controller.errorMessage, isNull);
+    expect(controller.dues, isEmpty);
+    verify(() => mockDeleteDue.call(1)).called(1);
+    verify(() => mockDeleteDue.call(2)).called(1);
+  });
 }
