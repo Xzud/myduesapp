@@ -32,37 +32,122 @@ class _HomePageState extends State<HomePage> {
     await dashboardController.loadSummary();
   }
 
-  Widget _statCard({
+  Widget _countTile({
     required BuildContext context,
     required String label,
     required String value,
-    required IconData icon,
   }) {
     final theme = Theme.of(context);
 
-    return SizedBox(
-      width: 165,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 84,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: theme.colorScheme.primary),
-              const SizedBox(height: 12),
               Text(
-                value,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: 9,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(label, style: theme.textTheme.bodyMedium),
+              const Spacer(),
+              Center(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const Spacer(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _amountCard({
+    required BuildContext context,
+    required String label,
+    required String value,
+  }) {
+    final theme = Theme.of(context);
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _amountGrid(BuildContext context, DashboardSummary summary) {
+    final items = [
+      ('Total amount', formatPhp(summary.totalAmount)),
+      ('Paid amount', formatPhp(summary.paidAmount)),
+      ('Unpaid amount', formatPhp(summary.unpaidAmount)),
+      ('Overdue amount', formatPhp(summary.overdueAmount)),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= 340;
+        final cardWidth = twoColumns
+            ? (constraints.maxWidth - 8) / 2
+            : constraints.maxWidth;
+
+        final cards = [
+          for (final item in items)
+            SizedBox(
+              width: cardWidth,
+              child: _amountCard(
+                context: context,
+                label: item.$1,
+                value: item.$2,
+              ),
+            ),
+        ];
+
+        if (!twoColumns) {
+          return Column(
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                cards[i],
+                if (i != cards.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          );
+        }
+
+        return Wrap(spacing: 8, runSpacing: 8, children: cards);
+      },
     );
   }
 
@@ -101,9 +186,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _monthlyCard(BuildContext context, DashboardMonthlySummary summary) {
+    final theme = Theme.of(context);
+
     return Card(
+      clipBehavior: Clip.antiAlias,
+      color: theme.colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -112,26 +201,32 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: Text(
                     summary.month,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
                 Text(
                   formatPhp(summary.totalAmount),
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               'Total ${summary.totalCount} • Paid ${summary.paidCount} • Unpaid ${summary.unpaidCount} • Overdue ${summary.overdueCount}',
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               'Paid ${formatPhp(summary.paidAmount)} • Unpaid ${formatPhp(summary.unpaidAmount)}',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.68),
+              ),
             ),
           ],
         ),
@@ -183,20 +278,18 @@ class _HomePageState extends State<HomePage> {
 
           return SafeArea(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               children: [
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.tertiary,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.12),
                     ),
+                    color: Theme.of(context).colorScheme.surface,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,16 +297,15 @@ class _HomePageState extends State<HomePage> {
                       Text(
                         'Dashboard',
                         style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Track dues, monitor payment health, and jump into the next create flow.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimary,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.72),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -241,96 +333,63 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                _sectionTitle(context, 'Amounts'),
+                const SizedBox(height: 12),
+                _amountGrid(context, summary),
+                const SizedBox(height: 20),
                 _sectionTitle(
                   context,
                   'Counts',
                   trailing: 'Total ${summary.totalCount}',
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                const SizedBox(height: 8),
+                GridView.count(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 4,
+                  mainAxisSpacing: 4,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: 1,
                   children: [
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'Paid',
                       value: summary.paidCount.toString(),
-                      icon: Icons.check_circle_rounded,
                     ),
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'Unpaid',
                       value: summary.unpaidCount.toString(),
-                      icon: Icons.pending_actions_rounded,
                     ),
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'Overdue',
                       value: summary.overdueCount.toString(),
-                      icon: Icons.warning_rounded,
                     ),
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'Due today',
                       value: summary.dueTodayCount.toString(),
-                      icon: Icons.today_rounded,
                     ),
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'Upcoming',
                       value: summary.upcomingCount.toString(),
-                      icon: Icons.event_available_rounded,
                     ),
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'Recurring',
                       value: summary.recurringCount.toString(),
-                      icon: Icons.autorenew_rounded,
                     ),
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'One-time',
                       value: summary.oneTimeCount.toString(),
-                      icon: Icons.payments_rounded,
                     ),
-                    _statCard(
+                    _countTile(
                       context: context,
                       label: 'Complete',
                       value: summary.completeCount.toString(),
-                      icon: Icons.verified_rounded,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _sectionTitle(context, 'Amounts'),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _statCard(
-                      context: context,
-                      label: 'Total amount',
-                      value: formatPhp(summary.totalAmount),
-                      icon: Icons.account_balance_wallet_rounded,
-                    ),
-                    _statCard(
-                      context: context,
-                      label: 'Paid amount',
-                      value: formatPhp(summary.paidAmount),
-                      icon: Icons.trending_up_rounded,
-                    ),
-                    _statCard(
-                      context: context,
-                      label: 'Unpaid amount',
-                      value: formatPhp(summary.unpaidAmount),
-                      icon: Icons.trending_down_rounded,
-                    ),
-                    _statCard(
-                      context: context,
-                      label: 'Overdue amount',
-                      value: formatPhp(summary.overdueAmount),
-                      icon: Icons.report_rounded,
                     ),
                   ],
                 ),
@@ -343,11 +402,16 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 8),
                 if (summary.monthlySummaries.isEmpty)
                   Card(
+                    color: Theme.of(context).colorScheme.surface,
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       child: Text(
                         'No monthly analytics yet. Create dues to populate this view.',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.72),
+                        ),
                       ),
                     ),
                   )
@@ -356,7 +420,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       for (final monthly in summary.monthlySummaries)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(bottom: 8),
                           child: _monthlyCard(context, monthly),
                         ),
                     ],
@@ -364,8 +428,9 @@ class _HomePageState extends State<HomePage> {
                 if (summary.totalCount == 0) ...[
                   const SizedBox(height: 8),
                   Card(
+                    color: Theme.of(context).colorScheme.surface,
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -376,7 +441,11 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: 8),
                           Text(
                             'Create your first split due to start filling the dashboard.',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.72),
+                                ),
                           ),
                           const SizedBox(height: 16),
                           FilledButton.icon(
