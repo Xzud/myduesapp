@@ -43,10 +43,21 @@ class DueController extends ChangeNotifier {
   }
 
   Future<void> togglePaid({required int dueId, required bool paid}) async {
-    await _runMutation(() async {
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
       await setDuePaid.call(dueId, paid);
-      _dues = await getAllDues.call();
-    });
+      _setPaidLocally(dueId, paid);
+    } catch (e) {
+      _errorMessage = e.toString();
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('Due toggle failed: $e');
+      }
+    } finally {
+      notifyListeners();
+    }
   }
 
   Future<void> updateDueItem(DueEntity due) async {
@@ -93,6 +104,17 @@ class DueController extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  void _setPaidLocally(int dueId, bool paid) {
+    for (final month in _dues) {
+      for (final due in month.dues) {
+        if (due.id == dueId) {
+          due.paid = paid;
+          return;
+        }
+      }
     }
   }
 }

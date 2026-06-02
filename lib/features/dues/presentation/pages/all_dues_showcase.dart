@@ -633,27 +633,31 @@ class _SegmentationDueCard extends StatelessWidget {
       child: Card(
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          leading: Checkbox(
-            value: due.paid,
-            onChanged: due.id <= 0
-                ? null
-                : (value) => onTogglePaid(due, value ?? false),
-          ),
-          title: Text(due.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(_subtitle(due)),
-          trailing: PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'edit') {
-                await onEditDue(due);
-              } else if (value == 'delete') {
-                await onDeleteDue(due);
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: Text('Edit')),
-              PopupMenuItem(value: 'delete', child: Text('Delete')),
-            ],
+        child: Opacity(
+          opacity: due.paid ? 0.72 : 1,
+          child: ListTile(
+            onTap: due.id <= 0 ? null : () => onTogglePaid(due, !due.paid),
+            leading: Checkbox(
+              value: due.paid,
+              onChanged: due.id <= 0
+                  ? null
+                  : (value) => onTogglePaid(due, value ?? false),
+            ),
+            title: Text(due.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: Text(_subtitle(due)),
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) async {
+                if (value == 'edit') {
+                  await onEditDue(due);
+                } else if (value == 'delete') {
+                  await onDeleteDue(due);
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+            ),
           ),
         ),
       ),

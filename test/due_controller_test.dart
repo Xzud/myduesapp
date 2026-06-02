@@ -63,21 +63,13 @@ void main() {
     verify(() => mockGetAllDues()).called(1);
   });
 
-  test('should toggle paid and refresh dues', () async {
-    var calls = 0;
+  test('should toggle paid without reloading dues', () async {
     when(() => mockGetAllDues()).thenAnswer((_) async {
-      calls += 1;
       return [
         MonthlyDue(
           month: 'May 2026',
           dues: [
-            Due(
-              id: 1,
-              name: 'Loan A',
-              price: 100,
-              paid: calls > 1,
-              dayOfMonth: 5,
-            ),
+            Due(id: 1, name: 'Loan A', price: 100, paid: false, dayOfMonth: 5),
           ],
         ),
       ];
@@ -90,6 +82,7 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues.first.dues.first.paid, true);
     verify(() => mockSetDuePaid.call(1, true)).called(1);
+    verify(() => mockGetAllDues()).called(1);
   });
 
   test('should update due and refresh dues', () async {

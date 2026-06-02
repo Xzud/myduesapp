@@ -15,6 +15,8 @@ import 'package:myduesapp/features/dues/presentation/controllers/dashboard_contr
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 import 'package:myduesapp/features/dues/presentation/pages/create.dart';
+import 'package:myduesapp/features/dues/presentation/pages/dues.dart'
+    show DuesPage;
 import 'package:myduesapp/features/dues/presentation/pages/home.dart';
 import 'package:myduesapp/injection_container.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -52,6 +54,7 @@ class _FakeDueController extends DueController {
       );
 
   final List<MonthlyDue> _dues;
+  final List<int> toggleCalls = [];
 
   @override
   List<MonthlyDue> get dues => _dues;
@@ -64,6 +67,19 @@ class _FakeDueController extends DueController {
 
   @override
   Future<void> fetchDues() async {}
+
+  @override
+  Future<void> togglePaid({required int dueId, required bool paid}) async {
+    toggleCalls.add(dueId);
+    for (final month in _dues) {
+      for (final due in month.dues) {
+        if (due.id == dueId) {
+          due.paid = paid;
+        }
+      }
+    }
+    notifyListeners();
+  }
 }
 
 class _FakeDashboardController extends DashboardController {
@@ -296,5 +312,51 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Total interest amount (PHP)'), findsOneWidget);
+  });
+
+  testWidgets('overview row toggles paid when the card is tapped', (
+    WidgetTester tester,
+  ) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'May 2026',
+        dues: [
+          Due(
+            id: 1,
+            name: 'Laptop',
+            price: 12000,
+            paid: false,
+            dayOfMonth: 5,
+            dueDate: '2026-05-05',
+          ),
+          Due(
+            id: 2,
+            name: 'Phone',
+            price: 8000,
+            paid: true,
+            dayOfMonth: 15,
+            dueDate: '2026-05-15',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: DuesPage()));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Laptop'), findsOneWidget);
+    expect(find.text('Billing day 5'), findsOneWidget);
+    expect(find.text('Billing day 15'), findsOneWidget);
+
+    await tester.tap(find.text('Laptop'));
+    await tester.pumpAndSettle();
+
+    expect(controller.toggleCalls, [1]);
+    expect(controller.dues.first.dues.first.paid, true);
   });
 }
