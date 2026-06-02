@@ -304,16 +304,35 @@ class _MonthSection extends StatelessWidget {
     required this.onDeleteDue,
   });
 
+  double _monthTotal(List<Due> dues) {
+    return dues.fold<double>(0, (sum, due) => sum + due.price);
+  }
+
   @override
   Widget build(BuildContext context) {
     final groups = groupByLoan(month.dues);
+    final total = _monthTotal(month.dues);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(month.month, style: Theme.of(context).textTheme.titleLarge),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  month.month,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Total ${formatPhp(total)}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           for (final entry in groups.entries)
             Padding(
@@ -358,63 +377,37 @@ class _LoanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final headerColor = complete
-        ? cs.primaryContainer
-        : cs.surfaceContainerHighest;
-
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Container(
-            width: double.infinity,
-            color: headerColor,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$paid/$total',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-              ],
-            ),
-          ),
-          LinearProgressIndicator(
-            minHeight: 3,
-            value: total == 0 ? 0 : paid / total,
-          ),
-          const SizedBox(height: 4),
-          for (final d in dues)
+          for (var index = 0; index < dues.length; index++)
             ListTile(
               dense: true,
+              visualDensity: VisualDensity.compact,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              minLeadingWidth: 24,
               leading: Checkbox(
-                value: d.paid,
-                onChanged: d.id <= 0
+                value: dues[index].paid,
+                onChanged: dues[index].id <= 0
                     ? null
-                    : (v) => onTogglePaid(d, v ?? false),
+                    : (v) => onTogglePaid(dues[index], v ?? false),
               ),
               title: Text(
-                d.installmentIndex != null && d.installmentCount != null
-                    ? 'Installment ${d.installmentIndex}/${d.installmentCount}'
-                    : d.name,
+                dues[index].installmentIndex != null &&
+                        dues[index].installmentCount != null
+                    ? '$title • Installment ${dues[index].installmentIndex}/${dues[index].installmentCount}'
+                    : title,
               ),
-              subtitle: Text(_subtitle(d)),
+              subtitle: Text(
+                _subtitle(dues[index], includeGroupSummary: index == 0),
+              ),
               trailing: PopupMenuButton<String>(
                 onSelected: (value) {
                   if (value == 'edit') {
-                    onEditDue(d);
+                    onEditDue(dues[index]);
                   } else if (value == 'delete') {
-                    onDeleteDue(d);
+                    onDeleteDue(dues[index]);
                   }
                 },
                 itemBuilder: (context) => const [
@@ -428,9 +421,14 @@ class _LoanCard extends StatelessWidget {
     );
   }
 
-  String _subtitle(Due d) {
+  String _subtitle(Due d, {required bool includeGroupSummary}) {
     final dt = DateTime.tryParse(d.dueDate ?? '');
-    if (dt == null) return 'No due date';
-    return 'Due ${formatYmd(dt)}';
+    final dueDateLabel = dt == null ? 'No due date' : 'Due ${formatYmd(dt)}';
+    final amountLabel = 'Installment ${formatPhp(d.price)}';
+    if (!includeGroupSummary) {
+      return '$dueDateLabel • $amountLabel';
+    }
+    final status = complete ? 'Fully paid' : 'Not yet';
+    return '$status ($paid/$total) • $dueDateLabel • $amountLabel';
   }
 }
