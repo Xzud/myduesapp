@@ -15,6 +15,7 @@ import 'package:myduesapp/features/dues/domain/entities/dashboard_summary_entity
 import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
+import 'package:myduesapp/features/dues/presentation/pages/all_dues_showcase.dart';
 import 'package:myduesapp/features/dues/presentation/pages/create.dart';
 import 'package:myduesapp/features/dues/presentation/pages/dues.dart'
     show DuesPage;
@@ -61,6 +62,7 @@ class _FakeDueController extends DueController {
   final List<int> toggleCalls = [];
   final List<List<int>> bulkPaidCalls = [];
   final List<bool> bulkPaidValues = [];
+  final List<List<int>> bulkDeleteCalls = [];
 
   @override
   List<MonthlyDue> get dues => _dues;
@@ -99,6 +101,17 @@ class _FakeDueController extends DueController {
         }
       }
     }
+    notifyListeners();
+  }
+
+  @override
+  Future<void> deleteDueItems(List<int> dueIds) async {
+    bulkDeleteCalls.add([...dueIds]);
+    final ids = dueIds.toSet();
+    for (final month in _dues) {
+      month.dues.removeWhere((due) => ids.contains(due.id));
+    }
+    _dues.removeWhere((month) => month.dues.isEmpty);
     notifyListeners();
   }
 }
@@ -289,8 +302,9 @@ void main() {
 
     expect(find.text('Principal amount (PHP)'), findsOneWidget);
     expect(find.text('Include Interest'), findsOneWidget);
+    expect(find.text('Billing days'), findsNothing);
     expect(find.text('Billing period selection'), findsOneWidget);
-    expect(find.text('Selected periods: 5, 15'), findsOneWidget);
+    expect(find.text('Selected period: 5'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Monthly').last,
@@ -470,5 +484,99 @@ void main() {
     expect(controller.bulkPaidValues, [true]);
     expect(controller.dues.first.dues.every((due) => due.paid), true);
     expect(find.text('2/2'), findsOneWidget);
+  });
+
+  testWidgets('all dues groups recurring payments and ends unpaid schedule', (
+    WidgetTester tester,
+  ) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'June 2026',
+        dues: [
+          Due(
+            id: 1,
+            name: 'Internet',
+            price: 1800,
+            paid: false,
+            dayOfMonth: 15,
+            recurring: true,
+            recurringInterval: 1,
+            dueDate: '2026-06-15',
+            createdAt: '2026-06-01 10:00:00',
+          ),
+          Due(
+            id: 4,
+            name: 'Phone',
+            price: 8000,
+            paid: false,
+            dayOfMonth: 20,
+            dueDate: '2026-06-20',
+          ),
+        ],
+      ),
+      MonthlyDue(
+        month: 'July 2026',
+        dues: [
+          Due(
+            id: 2,
+            name: 'Internet',
+            price: 1800,
+            paid: false,
+            dayOfMonth: 15,
+            recurring: true,
+            recurringInterval: 1,
+            dueDate: '2026-07-15',
+            createdAt: '2026-06-01 10:00:00',
+          ),
+        ],
+      ),
+      MonthlyDue(
+        month: 'August 2026',
+        dues: [
+          Due(
+            id: 3,
+            name: 'Internet',
+            price: 1800,
+            paid: true,
+            dayOfMonth: 15,
+            recurring: true,
+            recurringInterval: 1,
+            dueDate: '2026-08-15',
+            createdAt: '2026-06-01 10:00:00',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: AllDuesShowcasePage()));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Internet'), findsOneWidget);
+    expect(find.text('1/3+'), findsOneWidget);
+    expect(find.text('0/1'), findsOneWidget);
+
+    await tester.tap(find.text('Internet'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('End recurring payment'), findsOneWidget);
+
+    await tester.tap(find.text('End recurring payment'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('End recurring'));
+    await tester.pumpAndSettle();
+
+    expect(controller.bulkDeleteCalls, [
+      [1, 2],
+    ]);
+    final remainingIds = controller.dues
+        .expand((month) => month.dues)
+        .map((due) => due.id)
+        .toList();
+    expect(remainingIds, [4, 3]);
   });
 }

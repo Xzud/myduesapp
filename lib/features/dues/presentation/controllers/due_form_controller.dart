@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 
 enum AmountInputMode { principal, monthly }
@@ -24,6 +26,7 @@ class DueFormController extends ChangeNotifier {
   final GetPaymentDates getPaymentDates;
   final CreateSplitDue createSplitDue;
   final CreateRecurringDue createRecurringDue;
+  final GetDefaultBillingPeriodMode? getDefaultBillingPeriodMode;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -35,6 +38,7 @@ class DueFormController extends ChangeNotifier {
     required this.getPaymentDates,
     required this.createSplitDue,
     required this.createRecurringDue,
+    this.getDefaultBillingPeriodMode,
   });
 
   Future<List<int>> loadBillingDays() async {
@@ -46,6 +50,11 @@ class DueFormController extends ChangeNotifier {
     }
     days.sort();
     return days.toSet().toList()..sort();
+  }
+
+  Future<BillingPeriodMode> loadDefaultBillingPeriodMode() async {
+    return await getDefaultBillingPeriodMode?.call() ??
+        BillingPeriodMode.single;
   }
 
   double resolveSplitAmount({

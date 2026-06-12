@@ -51,6 +51,8 @@ void main() {
       expect(captured.map((due) => due.recurring), [true, true, true]);
       expect(captured.map((due) => due.recurringInterval), [1, 1, 1]);
       expect(captured.map((due) => due.amount), [12000, 12000, 12000]);
+      expect(captured.map((due) => due.loanId).toSet(), hasLength(1));
+      expect(captured.first.loanId, startsWith('recurring_'));
     },
   );
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
@@ -188,6 +189,39 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              AppSectionHeader(
+                title: 'Create defaults',
+                subtitle:
+                    'Choose how loan split billing periods are selected when Create opens.',
+              ),
+              const SizedBox(height: 12),
+              AppSurface(
+                child: SegmentedButton<BillingPeriodMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: BillingPeriodMode.single,
+                      label: Text('Single'),
+                      icon: Icon(Icons.radio_button_checked_rounded),
+                    ),
+                    ButtonSegment(
+                      value: BillingPeriodMode.multiple,
+                      label: Text('Multiple'),
+                      icon: Icon(Icons.checklist_rounded),
+                    ),
+                  ],
+                  selected: {controller.defaultBillingPeriodMode},
+                  showSelectedIcon: false,
+                  onSelectionChanged: controller.isLoading
+                      ? null
+                      : (selection) {
+                          if (selection.isEmpty) return;
+                          controller.updateDefaultBillingPeriodMode(
+                            selection.first,
+                          );
+                        },
                 ),
               ),
               const SizedBox(height: 20),

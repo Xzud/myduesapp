@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
@@ -35,6 +37,7 @@ class CreateRecurringDue {
     }
 
     final firstDate = _nextDueDate(startDate ?? DateTime.now(), billingDay);
+    final recurringGroupId = _buildRecurringGroupId();
     final dues = <DueEntity>[];
 
     for (var i = 0; i < occurrenceCount; i++) {
@@ -56,6 +59,7 @@ class CreateRecurringDue {
           recurring: true,
           recurringInterval: recurringInterval,
           dayOfMonth: billingDay,
+          loanId: recurringGroupId,
           dueDate: dueDate.toIso8601String(),
           paid: false,
           complete: false,
@@ -64,6 +68,12 @@ class CreateRecurringDue {
     }
 
     await repository.createDues(dues);
+  }
+
+  String _buildRecurringGroupId() {
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final rand = Random().nextInt(1 << 20);
+    return 'recurring_${now}_$rand';
   }
 
   DateTime _nextDueDate(DateTime from, int billingDay) {

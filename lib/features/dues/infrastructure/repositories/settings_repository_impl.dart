@@ -1,5 +1,9 @@
+import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
 import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
 import 'package:myduesapp/features/dues/infrastructure/datasources/settings_datasource.dart';
+
+const _billingDatesKey = 'billing_dates';
+const _defaultBillingPeriodModeKey = 'default_billing_period_mode';
 
 class SettingsRepositoryImpl implements SettingsRepository {
   final SettingsDatasource datasource;
@@ -8,7 +12,7 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   @override
   Future<List<int>> getBillingDates() async {
-    final settings = await datasource.getSettings('billing_dates');
+    final settings = await datasource.getSettings(_billingDatesKey);
     final decoded = settings?.getDecodedValue();
     if (decoded is! List) {
       return [];
@@ -27,7 +31,18 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   @override
   Future<void> setBillingDates(List<int> values) async {
-    await datasource.setSettings('billing_dates', values);
+    await datasource.setSettings(_billingDatesKey, values);
+  }
+
+  @override
+  Future<BillingPeriodMode> getDefaultBillingPeriodMode() async {
+    final settings = await datasource.getSettings(_defaultBillingPeriodModeKey);
+    return billingPeriodModeFromValue(settings?.getDecodedValue());
+  }
+
+  @override
+  Future<void> setDefaultBillingPeriodMode(BillingPeriodMode mode) async {
+    await datasource.setSettings(_defaultBillingPeriodModeKey, mode.name);
   }
 
   @override

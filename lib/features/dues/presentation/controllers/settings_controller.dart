@@ -1,11 +1,16 @@
 import 'package:flutter/foundation.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_payment_dates.dart';
+import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
 
 class SettingsController extends ChangeNotifier {
   final GetPaymentDates getPaymentDates;
   final SetPaymentDates setPaymentDates;
+  final GetDefaultBillingPeriodMode getDefaultBillingPeriodMode;
+  final SetDefaultBillingPeriodMode setDefaultBillingPeriodMode;
   final ResetAllData resetAllData;
 
   bool _isLoading = false;
@@ -17,11 +22,16 @@ class SettingsController extends ChangeNotifier {
   SettingsController({
     required this.getPaymentDates,
     required this.setPaymentDates,
+    required this.getDefaultBillingPeriodMode,
+    required this.setDefaultBillingPeriodMode,
     required this.resetAllData,
   });
 
   List<int> _billingDays = [];
   List<int> get billingDays => List.unmodifiable(_billingDays);
+
+  BillingPeriodMode _defaultBillingPeriodMode = BillingPeriodMode.single;
+  BillingPeriodMode get defaultBillingPeriodMode => _defaultBillingPeriodMode;
 
   Future<void> fetchPaymentDates() async {
     _isLoading = true;
@@ -30,6 +40,7 @@ class SettingsController extends ChangeNotifier {
 
     try {
       final raw = await getPaymentDates.call();
+      final defaultMode = await getDefaultBillingPeriodMode.call();
       final days = <int>[];
       for (final v in raw) {
         final d = int.tryParse(v);
@@ -37,6 +48,7 @@ class SettingsController extends ChangeNotifier {
       }
       days.sort();
       _billingDays = days.toSet().toList()..sort();
+      _defaultBillingPeriodMode = defaultMode;
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -61,6 +73,22 @@ class SettingsController extends ChangeNotifier {
     await _persist(next);
   }
 
+  Future<void> updateDefaultBillingPeriodMode(BillingPeriodMode mode) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await setDefaultBillingPeriodMode.call(mode);
+      _defaultBillingPeriodMode = mode;
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> resetData() async {
     _isLoading = true;
     _errorMessage = null;
@@ -69,6 +97,7 @@ class SettingsController extends ChangeNotifier {
     try {
       await resetAllData.call();
       _billingDays = [];
+      _defaultBillingPeriodMode = BillingPeriodMode.single;
     } catch (e) {
       _errorMessage = e.toString();
     } finally {

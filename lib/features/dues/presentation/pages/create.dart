@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due;
+import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
@@ -9,8 +10,6 @@ import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
-
-enum _BillingPeriodSelectionMode { single, multiple }
 
 enum _CreateDueMode { loanSplit, recurringBill }
 
@@ -48,8 +47,7 @@ class _CreatePageState extends State<CreatePage> {
   DateTime? _startDate;
   List<int> _billingDays = const [];
   final Set<int> _selectedBillingDays = <int>{};
-  _BillingPeriodSelectionMode _billingPeriodSelectionMode =
-      _BillingPeriodSelectionMode.multiple;
+  BillingPeriodMode _billingPeriodSelectionMode = BillingPeriodMode.single;
   bool _loadingBillingDays = true;
 
   @override
@@ -80,10 +78,12 @@ class _CreatePageState extends State<CreatePage> {
     });
 
     final days = await controller.loadBillingDays();
+    final defaultMode = await controller.loadDefaultBillingPeriodMode();
     if (!mounted) return;
 
     setState(() {
       _billingDays = days;
+      _billingPeriodSelectionMode = defaultMode;
       _syncSelectedBillingDays(days);
       _loadingBillingDays = false;
     });
@@ -117,7 +117,7 @@ class _CreatePageState extends State<CreatePage> {
   String _billingPeriodSummary() {
     final selected = _selectedBillingDaysList();
     if (selected.isEmpty) return 'Select at least one billing period.';
-    if (_billingPeriodSelectionMode == _BillingPeriodSelectionMode.single ||
+    if (_billingPeriodSelectionMode == BillingPeriodMode.single ||
         selected.length == 1) {
       return 'Selected period: ${selected.first}';
     }
@@ -127,9 +127,9 @@ class _CreatePageState extends State<CreatePage> {
 
   String _billingPeriodDescription() {
     switch (_billingPeriodSelectionMode) {
-      case _BillingPeriodSelectionMode.single:
+      case BillingPeriodMode.single:
         return 'Choose one billing period to populate due dates.';
-      case _BillingPeriodSelectionMode.multiple:
+      case BillingPeriodMode.multiple:
         return 'Choose one or more billing periods to cycle through.';
     }
   }
@@ -140,7 +140,7 @@ class _CreatePageState extends State<CreatePage> {
 
     if (preserved.isEmpty && available.isNotEmpty) {
       if (_createMode == _CreateDueMode.recurringBill ||
-          _billingPeriodSelectionMode == _BillingPeriodSelectionMode.single) {
+          _billingPeriodSelectionMode == BillingPeriodMode.single) {
         preserved.add(available.first);
       } else {
         preserved.addAll(available);
@@ -154,7 +154,7 @@ class _CreatePageState extends State<CreatePage> {
 
   void _selectBillingDay(int day) {
     setState(() {
-      if (_billingPeriodSelectionMode == _BillingPeriodSelectionMode.single) {
+      if (_billingPeriodSelectionMode == BillingPeriodMode.single) {
         _selectedBillingDays
           ..clear()
           ..add(day);
@@ -186,8 +186,14 @@ class _CreatePageState extends State<CreatePage> {
         if (selected != null) {
           _selectedBillingDays.add(selected);
         }
-      } else if (_selectedBillingDays.isEmpty && _billingDays.isNotEmpty) {
-        _selectedBillingDays.addAll(_billingDays);
+      } else if (_billingDays.isNotEmpty) {
+        final selected = _selectedBillingDay();
+        _selectedBillingDays.clear();
+        if (_billingPeriodSelectionMode == BillingPeriodMode.single) {
+          _selectedBillingDays.add(selected ?? _billingDays.first);
+        } else {
+          _selectedBillingDays.addAll(_billingDays);
+        }
       }
     });
   }
@@ -246,7 +252,7 @@ class _CreatePageState extends State<CreatePage> {
     return InterestPlan(mode: _interestMode, value: value);
   }
 
-  void _changeBillingPeriodMode(_BillingPeriodSelectionMode mode) {
+  void _changeBillingPeriodMode(BillingPeriodMode mode) {
     setState(() {
       _billingPeriodSelectionMode = mode;
 
@@ -256,7 +262,7 @@ class _CreatePageState extends State<CreatePage> {
       }
 
       final current = _selectedBillingDaysList();
-      if (mode == _BillingPeriodSelectionMode.single) {
+      if (mode == BillingPeriodMode.single) {
         final next = current.isNotEmpty ? current.first : _billingDays.first;
         _selectedBillingDays
           ..clear()
@@ -269,7 +275,7 @@ class _CreatePageState extends State<CreatePage> {
 
   Widget _buildBillingDayChip(int day) {
     final selected = _selectedBillingDays.contains(day);
-    if (_billingPeriodSelectionMode == _BillingPeriodSelectionMode.single) {
+    if (_billingPeriodSelectionMode == BillingPeriodMode.single) {
       return ChoiceChip(
         key: Key('billingPeriodSelectionChip_$day'),
         label: Text(day.toString()),
@@ -763,51 +769,19 @@ class _CreatePageState extends State<CreatePage> {
                           onTap: _pickStartDate,
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _createMode == _CreateDueMode.loanSplit
-                                  ? 'Billing days'
-                                  : 'Billing day',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => Navigator.pushReplacementNamed(
-                              context,
-                              '/settings',
-                            ),
-                            icon: const Icon(Icons.tune_rounded),
-                            label: const Text('Edit'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (_loadingBillingDays)
+                      if (_loadingBillingDays) ...[
+                        const SizedBox(height: 12),
                         const LinearProgressIndicator(minHeight: 3),
-                      if (!_loadingBillingDays && _billingDays.isEmpty)
+                      ],
+                      if (!_loadingBillingDays && _billingDays.isEmpty) ...[
+                        const SizedBox(height: 12),
                         Text(
-                          'No billing days set. Add at least one in Settings.',
+                          'Set at least one billing day in Settings first.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.error,
                           ),
                         ),
-                      if (!_loadingBillingDays && _billingDays.isNotEmpty)
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final d in _billingDays)
-                              Chip(
-                                label: Text(d.toString()),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                          ],
-                        ),
+                      ],
                       if (_createMode == _CreateDueMode.loanSplit) ...[
                         const SizedBox(height: 16),
                         Text(
@@ -817,15 +791,15 @@ class _CreatePageState extends State<CreatePage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        SegmentedButton<_BillingPeriodSelectionMode>(
+                        SegmentedButton<BillingPeriodMode>(
                           segments: const [
                             ButtonSegment(
-                              value: _BillingPeriodSelectionMode.single,
+                              value: BillingPeriodMode.single,
                               label: Text('Single'),
                               icon: Icon(Icons.radio_button_checked_rounded),
                             ),
                             ButtonSegment(
-                              value: _BillingPeriodSelectionMode.multiple,
+                              value: BillingPeriodMode.multiple,
                               label: Text('Multiple'),
                               icon: Icon(Icons.checklist_rounded),
                             ),

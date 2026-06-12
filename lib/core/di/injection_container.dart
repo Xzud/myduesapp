@@ -9,11 +9,13 @@ import 'package:myduesapp/features/dues/infrastructure/repositories/settings_rep
 import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
@@ -50,6 +52,12 @@ Future<void> init() async {
   sl.registerLazySingleton<SetPaymentDates>(
     () => SetPaymentDates(repository: sl()),
   );
+  sl.registerLazySingleton<GetDefaultBillingPeriodMode>(
+    () => GetDefaultBillingPeriodMode(repository: sl()),
+  );
+  sl.registerLazySingleton<SetDefaultBillingPeriodMode>(
+    () => SetDefaultBillingPeriodMode(repository: sl()),
+  );
   sl.registerLazySingleton<CreateSplitDue>(
     () => CreateSplitDue(repository: sl()),
   );
@@ -80,12 +88,15 @@ Future<void> init() async {
       getPaymentDates: sl(),
       createSplitDue: sl(),
       createRecurringDue: sl(),
+      getDefaultBillingPeriodMode: sl(),
     ),
   );
   sl.registerFactory(
     () => SettingsController(
       getPaymentDates: sl(),
       setPaymentDates: sl(),
+      getDefaultBillingPeriodMode: sl(),
+      setDefaultBillingPeriodMode: sl(),
       resetAllData: sl(),
     ),
   );

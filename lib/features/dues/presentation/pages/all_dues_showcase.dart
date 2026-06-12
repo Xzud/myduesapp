@@ -30,12 +30,56 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
     return months.expand((month) => month.dues).toList();
   }
 
-  String _loanGroupKey(Due due) => due.loanId ?? 'single:${due.id}';
+  String _dueGroupKey(Due due) {
+    if (due.recurring) {
+      return _recurringGroupKey(due);
+    }
+
+    final groupId = due.loanId?.trim();
+    if (groupId != null && groupId.isNotEmpty) {
+      return 'loan:$groupId';
+    }
+
+    return 'single:${due.id}';
+  }
+
+  String _recurringGroupKey(Due due) {
+    final groupId = due.loanId?.trim();
+    if (groupId != null && groupId.isNotEmpty) {
+      return 'recurring:$groupId';
+    }
+
+    final name = due.name.trim().toLowerCase();
+    final amount = due.price.toStringAsFixed(2);
+    final created = _createdAtGroupKey(due);
+    return 'recurring:$name|$amount|${_billingDayFor(due)}|${due.recurringInterval}|$created';
+  }
+
+  String _createdAtGroupKey(Due due) {
+    final createdAt = due.createdAt?.trim();
+    if (createdAt == null || createdAt.isEmpty) {
+      return 'legacy';
+    }
+
+    final parsed = DateTime.tryParse(createdAt);
+    if (parsed == null) {
+      return createdAt;
+    }
+
+    return [
+      parsed.year.toString().padLeft(4, '0'),
+      parsed.month.toString().padLeft(2, '0'),
+      parsed.day.toString().padLeft(2, '0'),
+      parsed.hour.toString().padLeft(2, '0'),
+      parsed.minute.toString().padLeft(2, '0'),
+      parsed.second.toString().padLeft(2, '0'),
+    ].join('-');
+  }
 
   Map<String, List<Due>> _groupByLoan(List<Due> dues) {
     final out = <String, List<Due>>{};
     for (final due in dues) {
-      final key = _loanGroupKey(due);
+      final key = _dueGroupKey(due);
       out.putIfAbsent(key, () => []);
       out[key]!.add(due);
     }
@@ -53,10 +97,30 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
     return out;
   }
 
+  int _billingDayFor(Due due) {
+    if (due.dayOfMonth > 0) return due.dayOfMonth;
+    final dt = DateTime.tryParse(due.dueDate ?? '');
+    return dt?.day ?? 0;
+  }
+
   bool _loanComplete(List<Due> dues) =>
       dues.isNotEmpty && dues.every((due) => due.paid);
 
   int _paidCount(List<Due> dues) => dues.where((due) => due.paid).length;
+
+  int _unpaidCount(List<Due> dues) => dues.where((due) => !due.paid).length;
+
+  bool _isRecurringGroup(List<Due> dues) =>
+      dues.isNotEmpty && dues.every((due) => due.recurring);
+
+  String _progressLabel(List<Due> dues) {
+    final paid = _paidCount(dues);
+    final total = dues.length;
+    if (_isRecurringGroup(dues)) {
+      return '$paid/$total+';
+    }
+    return _loanComplete(dues) ? 'Paid' : '$paid/$total';
+  }
 
   String _loanTitle(List<Due> dues) {
     if (dues.isEmpty) return '';
@@ -199,6 +263,54 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
     return controller.errorMessage == null;
   }
 
+  Future<bool> _endRecurringPayment(List<Due> dues) async {
+    final unpaidIds = dues
+        .where((due) => due.recurring && !due.paid && due.id > 0)
+        .map((due) => due.id)
+        .toList();
+    if (unpaidIds.isEmpty) {
+      return false;
+    }
+
+    final shouldEnd = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('End recurring payment?'),
+          content: Text(
+            'This will delete ${unpaidIds.length} unpaid scheduled occurrence(s) for ${_loanTitle(dues)} and keep paid history.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('End recurring'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldEnd != true || !mounted) {
+      return false;
+    }
+
+    await controller.deleteDueItems(unpaidIds);
+    if (!mounted) {
+      return false;
+    }
+
+    _showErrorIfAny();
+    return controller.errorMessage == null;
+  }
+
   Future<bool> _deleteDueGroup(List<Due> dues) async {
     final validIds = dues
         .where((due) => due.id > 0)
@@ -325,6 +437,8 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                   final paid = _paidCount(dues);
                   final total = dues.length;
                   final complete = _loanComplete(dues);
+                  final recurring = _isRecurringGroup(dues);
+                  final unpaid = _unpaidCount(dues);
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,7 +451,7 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                           ),
-                          Text('$paid/$total'),
+                          Text(_progressLabel(dues)),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -349,11 +463,17 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                       Row(
                         children: [
                           AppStatusPill(
-                            label: complete ? 'Fully paid' : 'Not yet complete',
-                            icon: complete
+                            label: recurring
+                                ? 'Recurring payment'
+                                : complete
+                                ? 'Fully paid'
+                                : 'Not yet complete',
+                            icon: recurring
+                                ? Icons.repeat_rounded
+                                : complete
                                 ? Icons.check_circle_outline_rounded
                                 : Icons.pending_actions_outlined,
-                            emphasized: complete,
+                            emphasized: complete || recurring,
                           ),
                           const Spacer(),
                           Text(
@@ -380,6 +500,28 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                         ),
                       ),
                       const SizedBox(height: 12),
+                      if (recurring) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: unpaid == 0
+                                ? null
+                                : () async {
+                                    final ended = await _endRecurringPayment(
+                                      dues,
+                                    );
+                                    if (ended &&
+                                        mounted &&
+                                        sheetContext.mounted) {
+                                      Navigator.pop(sheetContext);
+                                    }
+                                  },
+                            icon: const Icon(Icons.event_busy_rounded),
+                            label: const Text('End recurring payment'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.tonalIcon(
@@ -516,6 +658,7 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                         paid: _paidCount(entry.value),
                         total: entry.value.length,
                         complete: _loanComplete(entry.value),
+                        recurring: _isRecurringGroup(entry.value),
                         onTap: () => _openSegmentationSheet(
                           groupKey: entry.key,
                           title: _loanTitle(entry.value),
@@ -540,6 +683,7 @@ class _DueGroupCard extends StatelessWidget {
   final int paid;
   final int total;
   final bool complete;
+  final bool recurring;
   final VoidCallback onTap;
 
   const _DueGroupCard({
@@ -548,8 +692,14 @@ class _DueGroupCard extends StatelessWidget {
     required this.paid,
     required this.total,
     required this.complete,
+    required this.recurring,
     required this.onTap,
   });
+
+  String get _statusLabel {
+    if (recurring) return '$paid/$total+';
+    return complete ? 'Paid' : '$paid/$total';
+  }
 
   String _rangeLabel(List<Due> dues) {
     if (dues.isEmpty) return 'No due dates';
@@ -596,11 +746,13 @@ class _DueGroupCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   AppStatusPill(
-                    label: complete ? 'Paid' : '$paid/$total',
-                    icon: complete
+                    label: _statusLabel,
+                    icon: recurring
+                        ? Icons.repeat_rounded
+                        : complete
                         ? Icons.check_circle_outline_rounded
                         : Icons.pending_actions_outlined,
-                    emphasized: complete,
+                    emphasized: complete || recurring,
                   ),
                 ],
               ),
@@ -638,13 +790,13 @@ class _DueGroupCard extends StatelessWidget {
 
 typedef TogglePaid = Future<void> Function(Due due, bool paid);
 typedef EditDue = Future<void> Function(Due due);
-typedef DeleteDue = Future<bool> Function(Due due);
+typedef DeleteDueCallback = Future<bool> Function(Due due);
 
 class _SegmentationDueCard extends StatelessWidget {
   final Due due;
   final TogglePaid onTogglePaid;
   final EditDue onEditDue;
-  final DeleteDue onDeleteDue;
+  final DeleteDueCallback onDeleteDue;
 
   const _SegmentationDueCard({
     required this.due,
