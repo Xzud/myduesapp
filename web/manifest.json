@@ -1,6 +1,6 @@
 {
-    "name": "myduesapp",
-    "short_name": "myduesapp",
+    "name": "MyDues",
+    "short_name": "MyDues",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
