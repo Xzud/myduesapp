@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:myduesapp/core/theme.dart';
+import 'package:myduesapp/features/dues/presentation/pages/all_dues_showcase.dart';
 import 'package:myduesapp/features/dues/presentation/pages/create.dart';
 import 'package:myduesapp/features/dues/presentation/pages/dues.dart';
 import 'package:myduesapp/features/dues/presentation/pages/home.dart';
@@ -19,22 +21,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final seed = Colors.blue;
-
     return MaterialApp(
       title: 'MyDues',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: seed),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
+      theme: AppTheme.light(),
       initialRoute: '/',
       routes: {
         '/': (context) => const HomePage(title: 'MyDues'),
         '/create': (context) => const CreatePage(title: 'Create'),
         '/overview': (context) => const DuesPage(),
+        '/all-dues': (context) => const AllDuesShowcasePage(),
         '/settings': (context) => const SettingsPage(),
       },
     );

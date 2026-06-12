@@ -5,7 +5,8 @@ import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
-import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
@@ -468,539 +469,504 @@ class _CreatePageState extends State<CreatePage> {
   @override
   Widget build(BuildContext context) {
     final duesPreview = _duePreviewItems();
+    final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh billing days',
-            onPressed: _refreshAll,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: () =>
-                Navigator.pushReplacementNamed(context, '/settings'),
-            icon: const Icon(Icons.settings_rounded),
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(current: '/create'),
+    return AppScaffold(
+      currentRoute: '/create',
+      title: Text(widget.title),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh billing days',
+          onPressed: _refreshAll,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+        IconButton(
+          tooltip: 'Settings',
+          onPressed: () => Navigator.pushReplacementNamed(context, '/settings'),
+          icon: const Icon(Icons.settings_rounded),
+        ),
+      ],
       body: ListenableBuilder(
         listenable: Listenable.merge([controller, dueController]),
         builder: (context, child) {
-          return SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Row(
+          return AppListView(
+            maxWidth: appWideContentMaxWidth,
+            children: [
+              AppSurface(
+                color: theme.colorScheme.primaryContainer,
+                side: BorderSide.none,
+                child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         _createMode == _CreateDueMode.loanSplit
                             ? 'Create loan split'
                             : 'Create recurring bill',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     if (controller.isLoading)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                SegmentedButton<_CreateDueMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: _CreateDueMode.loanSplit,
-                      label: Text('Loan split'),
-                      icon: Icon(Icons.splitscreen_rounded),
-                    ),
-                    ButtonSegment(
-                      value: _CreateDueMode.recurringBill,
-                      label: Text('Recurring bill'),
-                      icon: Icon(Icons.repeat_rounded),
-                    ),
-                  ],
-                  selected: {_createMode},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (selection) {
-                    if (selection.isEmpty) return;
-                    _changeCreateMode(selection.first);
-                  },
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            key: const Key('titleField'),
-                            controller: _titleCtrl,
-                            textInputAction: TextInputAction.next,
-                            decoration: InputDecoration(
-                              labelText: 'Title',
-                              hintText: _createMode == _CreateDueMode.loanSplit
-                                  ? 'e.g., Motorcycle loan'
-                                  : 'e.g., Internet bill',
-                              prefixIcon: const Icon(Icons.title_rounded),
+              ),
+              const SizedBox(height: 12),
+              SegmentedButton<_CreateDueMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: _CreateDueMode.loanSplit,
+                    label: Text('Loan split'),
+                    icon: Icon(Icons.splitscreen_rounded),
+                  ),
+                  ButtonSegment(
+                    value: _CreateDueMode.recurringBill,
+                    label: Text('Recurring bill'),
+                    icon: Icon(Icons.repeat_rounded),
+                  ),
+                ],
+                selected: {_createMode},
+                showSelectedIcon: false,
+                onSelectionChanged: (selection) {
+                  if (selection.isEmpty) return;
+                  _changeCreateMode(selection.first);
+                },
+              ),
+              const SizedBox(height: 12),
+              AppSurface(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        key: const Key('titleField'),
+                        controller: _titleCtrl,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: 'Title',
+                          hintText: _createMode == _CreateDueMode.loanSplit
+                              ? 'e.g., Motorcycle loan'
+                              : 'e.g., Internet bill',
+                          prefixIcon: const Icon(Icons.title_rounded),
+                        ),
+                        validator: (v) {
+                          final s = (v ?? '').trim();
+                          if (s.isEmpty) return 'Title is required';
+                          return null;
+                        },
+                      ),
+                      if (_createMode == _CreateDueMode.loanSplit) ...[
+                        const SizedBox(height: 12),
+                        SegmentedButton<AmountInputMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: AmountInputMode.principal,
+                              label: Text('Principal'),
                             ),
-                            validator: (v) {
-                              final s = (v ?? '').trim();
-                              if (s.isEmpty) return 'Title is required';
-                              return null;
-                            },
-                          ),
-                          if (_createMode == _CreateDueMode.loanSplit) ...[
-                            const SizedBox(height: 12),
-                            SegmentedButton<AmountInputMode>(
+                            ButtonSegment(
+                              value: AmountInputMode.monthly,
+                              label: Text('Monthly'),
+                            ),
+                          ],
+                          selected: {_amountMode},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (selection) {
+                            if (selection.isEmpty) return;
+                            setState(() {
+                              _amountMode = selection.first;
+                            });
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        key: const Key('amountField'),
+                        controller: _amountCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: _amountLabel(),
+                          hintText: _amountHint(),
+                          helperText: _amountHelperText(),
+                          prefixIcon: Icon(_amountIcon()),
+                        ),
+                        validator: (v) {
+                          final amt = double.tryParse((v ?? '').trim());
+                          if (amt == null || amt <= 0) {
+                            return 'Enter a valid amount';
+                          }
+                          return null;
+                        },
+                      ),
+                      if (_createMode == _CreateDueMode.loanSplit) ...[
+                        const SizedBox(height: 12),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Include Interest'),
+                          value: _includeInterest,
+                          onChanged: (value) {
+                            setState(() {
+                              _includeInterest = value;
+                            });
+                          },
+                        ),
+                        if (_includeInterest) ...[
+                          const SizedBox(height: 12),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SegmentedButton<InterestMode>(
                               segments: const [
                                 ButtonSegment(
-                                  value: AmountInputMode.principal,
-                                  label: Text('Principal'),
+                                  value: InterestMode.percentage,
+                                  label: Text('Percentage'),
                                 ),
                                 ButtonSegment(
-                                  value: AmountInputMode.monthly,
-                                  label: Text('Monthly'),
+                                  value: InterestMode.monthlyFixedAmount,
+                                  label: Text('Monthly fixed'),
+                                ),
+                                ButtonSegment(
+                                  value:
+                                      InterestMode.totalAmountDividedPerMonth,
+                                  label: Text('Total interest'),
                                 ),
                               ],
-                              selected: {_amountMode},
+                              selected: {_interestMode},
                               showSelectedIcon: false,
                               onSelectionChanged: (selection) {
                                 if (selection.isEmpty) return;
                                 setState(() {
-                                  _amountMode = selection.first;
+                                  _interestMode = selection.first;
                                 });
                               },
                             ),
-                          ],
+                          ),
                           const SizedBox(height: 12),
                           TextFormField(
-                            key: const Key('amountField'),
-                            controller: _amountCtrl,
+                            key: const Key('interestField'),
+                            controller: _interestCtrl,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
                             textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
-                              labelText: _amountLabel(),
-                              hintText: _amountHint(),
-                              helperText: _amountHelperText(),
-                              prefixIcon: Icon(_amountIcon()),
+                              labelText: _interestLabel(),
+                              hintText: _interestHint(),
+                              helperText: _interestHelperText(),
+                              prefixIcon: Icon(_interestIcon()),
                             ),
                             validator: (v) {
-                              final amt = double.tryParse((v ?? '').trim());
-                              if (amt == null || amt <= 0) {
-                                return 'Enter a valid amount';
+                              final value = double.tryParse((v ?? '').trim());
+                              if (!_includeInterest) return null;
+                              if (value == null || value <= 0) {
+                                return 'Enter a valid interest value';
                               }
                               return null;
                             },
                           ),
-                          if (_createMode == _CreateDueMode.loanSplit) ...[
-                            const SizedBox(height: 12),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text('Include Interest'),
-                              value: _includeInterest,
-                              onChanged: (value) {
-                                setState(() {
-                                  _includeInterest = value;
-                                });
-                              },
+                        ],
+                      ],
+                      const SizedBox(height: 12),
+                      if (_createMode == _CreateDueMode.loanSplit)
+                        _TwoColumnFields(
+                          first: TextFormField(
+                            key: const Key('installmentsField'),
+                            controller: _installmentsCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: false,
                             ),
-                            if (_includeInterest) ...[
-                              const SizedBox(height: 12),
-                              SegmentedButton<InterestMode>(
-                                segments: const [
-                                  ButtonSegment(
-                                    value: InterestMode.percentage,
-                                    label: Text('Percentage'),
-                                  ),
-                                  ButtonSegment(
-                                    value: InterestMode.monthlyFixedAmount,
-                                    label: Text('Monthly fixed'),
-                                  ),
-                                  ButtonSegment(
-                                    value:
-                                        InterestMode.totalAmountDividedPerMonth,
-                                    label: Text('Total interest'),
-                                  ),
-                                ],
-                                selected: {_interestMode},
-                                showSelectedIcon: false,
-                                onSelectionChanged: (selection) {
-                                  if (selection.isEmpty) return;
-                                  setState(() {
-                                    _interestMode = selection.first;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              TextFormField(
-                                key: const Key('interestField'),
-                                controller: _interestCtrl,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                textInputAction: TextInputAction.next,
-                                decoration: InputDecoration(
-                                  labelText: _interestLabel(),
-                                  hintText: _interestHint(),
-                                  helperText: _interestHelperText(),
-                                  prefixIcon: Icon(_interestIcon()),
-                                ),
-                                validator: (v) {
-                                  final value = double.tryParse(
-                                    (v ?? '').trim(),
-                                  );
-                                  if (!_includeInterest) return null;
-                                  if (value == null || value <= 0) {
-                                    return 'Enter a valid interest value';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
-                          ],
-                          const SizedBox(height: 12),
-                          if (_createMode == _CreateDueMode.loanSplit)
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    key: const Key('installmentsField'),
-                                    controller: _installmentsCtrl,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: false,
-                                        ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Installments',
-                                      hintText: 'e.g., 3',
-                                      prefixIcon: Icon(
-                                        Icons.format_list_numbered_rounded,
-                                      ),
-                                    ),
-                                    validator: (v) {
-                                      final n = int.tryParse((v ?? '').trim());
-                                      if (n == null || n < 1) {
-                                        return 'Must be at least 1';
-                                      }
-                                      if (n > 120) {
-                                        return 'Too many installments';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: _pickStartDate,
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: InputDecorator(
-                                      decoration: const InputDecoration(
-                                        labelText: 'Start date (optional)',
-                                        prefixIcon: Icon(Icons.event_rounded),
-                                      ),
-                                      child: Text(
-                                        _startDate == null
-                                            ? 'Today'
-                                            : formatYmd(_startDate!),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          else ...[
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    key: const Key('recurringIntervalField'),
-                                    controller: _recurringIntervalCtrl,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: false,
-                                        ),
-                                    textInputAction: TextInputAction.next,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Interval (months)',
-                                      hintText: 'e.g., 1',
-                                      prefixIcon: Icon(Icons.repeat_rounded),
-                                    ),
-                                    validator: (v) {
-                                      final n = int.tryParse((v ?? '').trim());
-                                      if (n == null || n < 1) {
-                                        return 'Must be at least 1';
-                                      }
-                                      if (n > 120) return 'Too large';
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    key: const Key('occurrencesField'),
-                                    controller: _occurrencesCtrl,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: false,
-                                        ),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Occurrences',
-                                      hintText: 'e.g., 12',
-                                      prefixIcon: Icon(
-                                        Icons.format_list_numbered_rounded,
-                                      ),
-                                    ),
-                                    validator: (v) {
-                                      final n = int.tryParse((v ?? '').trim());
-                                      if (n == null || n < 1) {
-                                        return 'Must be at least 1';
-                                      }
-                                      if (n > 120) {
-                                        return 'Too many occurrences';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            InkWell(
-                              onTap: _pickStartDate,
-                              borderRadius: BorderRadius.circular(12),
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Start date (optional)',
-                                  prefixIcon: Icon(Icons.event_rounded),
-                                ),
-                                child: Text(
-                                  _startDate == null
-                                      ? 'Today'
-                                      : formatYmd(_startDate!),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                            decoration: const InputDecoration(
+                              labelText: 'Installments',
+                              hintText: 'e.g., 3',
+                              prefixIcon: Icon(
+                                Icons.format_list_numbered_rounded,
                               ),
                             ),
-                          ],
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _createMode == _CreateDueMode.loanSplit
-                                      ? 'Billing days'
-                                      : 'Billing day',
-                                  style: Theme.of(context).textTheme.titleSmall,
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: () => Navigator.pushReplacementNamed(
-                                  context,
-                                  '/settings',
-                                ),
-                                icon: const Icon(Icons.tune_rounded),
-                                label: const Text('Edit'),
-                              ),
-                            ],
+                            validator: (v) {
+                              final n = int.tryParse((v ?? '').trim());
+                              if (n == null || n < 1) {
+                                return 'Must be at least 1';
+                              }
+                              if (n > 120) {
+                                return 'Too many installments';
+                              }
+                              return null;
+                            },
                           ),
-                          const SizedBox(height: 8),
-                          if (_loadingBillingDays)
-                            const LinearProgressIndicator(minHeight: 3),
-                          if (!_loadingBillingDays && _billingDays.isEmpty)
-                            Text(
-                              'No billing days set. Add at least one in Settings.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.error,
-                                  ),
+                          second: _StartDateField(
+                            startDate: _startDate,
+                            onTap: _pickStartDate,
+                          ),
+                        )
+                      else ...[
+                        _TwoColumnFields(
+                          first: TextFormField(
+                            key: const Key('recurringIntervalField'),
+                            controller: _recurringIntervalCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: false,
                             ),
-                          if (!_loadingBillingDays && _billingDays.isNotEmpty)
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final d in _billingDays)
-                                  Chip(
-                                    label: Text(d.toString()),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                              ],
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Interval (months)',
+                              hintText: 'e.g., 1',
+                              prefixIcon: Icon(Icons.repeat_rounded),
                             ),
-                          if (_createMode == _CreateDueMode.loanSplit) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              'Billing period selection',
-                              style: Theme.of(context).textTheme.titleSmall,
+                            validator: (v) {
+                              final n = int.tryParse((v ?? '').trim());
+                              if (n == null || n < 1) {
+                                return 'Must be at least 1';
+                              }
+                              if (n > 120) return 'Too large';
+                              return null;
+                            },
+                          ),
+                          second: TextFormField(
+                            key: const Key('occurrencesField'),
+                            controller: _occurrencesCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: false,
                             ),
-                            const SizedBox(height: 8),
-                            SegmentedButton<_BillingPeriodSelectionMode>(
-                              segments: const [
-                                ButtonSegment(
-                                  value: _BillingPeriodSelectionMode.single,
-                                  label: Text('Single'),
-                                  icon: Icon(
-                                    Icons.radio_button_checked_rounded,
-                                  ),
-                                ),
-                                ButtonSegment(
-                                  value: _BillingPeriodSelectionMode.multiple,
-                                  label: Text('Multiple'),
-                                  icon: Icon(Icons.checklist_rounded),
-                                ),
-                              ],
-                              selected: {_billingPeriodSelectionMode},
-                              showSelectedIcon: false,
-                              onSelectionChanged: (selection) {
-                                if (selection.isEmpty) return;
-                                _changeBillingPeriodMode(selection.first);
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _billingPeriodDescription(),
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 12),
-                            if (!_loadingBillingDays && _billingDays.isNotEmpty)
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final d in _billingDays)
-                                    _buildBillingDayChip(d),
-                                ],
+                            decoration: const InputDecoration(
+                              labelText: 'Occurrences',
+                              hintText: 'e.g., 12',
+                              prefixIcon: Icon(
+                                Icons.format_list_numbered_rounded,
                               ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _billingPeriodSummary(),
-                              style: Theme.of(context).textTheme.bodySmall,
                             ),
-                          ] else ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              'Recurring billing day',
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Choose the day to use for each generated due.',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 12),
-                            if (!_loadingBillingDays && _billingDays.isNotEmpty)
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final d in _billingDays)
-                                    ChoiceChip(
-                                      key: Key('recurringBillingDayChip_$d'),
-                                      label: Text(d.toString()),
-                                      selected: _selectedBillingDay() == d,
-                                      onSelected: (selected) {
-                                        if (selected) {
-                                          _selectSingleBillingDay(d);
-                                        }
-                                      },
-                                    ),
-                                ],
+                            validator: (v) {
+                              final n = int.tryParse((v ?? '').trim());
+                              if (n == null || n < 1) {
+                                return 'Must be at least 1';
+                              }
+                              if (n > 120) {
+                                return 'Too many occurrences';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _StartDateField(
+                          startDate: _startDate,
+                          onTap: _pickStartDate,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _createMode == _CreateDueMode.loanSplit
+                                  ? 'Billing days'
+                                  : 'Billing day',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
                               ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _selectedBillingDay() == null
-                                  ? 'Select a billing day.'
-                                  : 'Selected billing day: ${_selectedBillingDay()}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: controller.isLoading ? null : _submit,
-                              icon: const Icon(
-                                Icons.add_circle_outline_rounded,
-                              ),
-                              label: const Text('Create'),
                             ),
                           ),
-                          if (controller.errorMessage != null) ...[
-                            const SizedBox(height: 10),
-                            Text(
-                              controller.errorMessage!,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                          TextButton.icon(
+                            onPressed: () => Navigator.pushReplacementNamed(
+                              context,
+                              '/settings',
                             ),
-                          ],
+                            icon: const Icon(Icons.tune_rounded),
+                            label: const Text('Edit'),
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Preview',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    if (duesPreview.isNotEmpty)
-                      Text(
-                        '${duesPreview.length} items',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (dueController.isLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: LinearProgressIndicator(minHeight: 3),
-                  ),
-                if (duesPreview.isEmpty)
-                  Text(
-                    'You currently have no dues',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  )
-                else
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        for (final d in duesPreview)
-                          ListTile(
-                            dense: true,
-                            title: Text(d.name),
-                            subtitle: Text(_dueSubtitle(d)),
-                            trailing: Text(formatPhp(d.price)),
+                      const SizedBox(height: 8),
+                      if (_loadingBillingDays)
+                        const LinearProgressIndicator(minHeight: 3),
+                      if (!_loadingBillingDays && _billingDays.isEmpty)
+                        Text(
+                          'No billing days set. Add at least one in Settings.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.error,
                           ),
+                        ),
+                      if (!_loadingBillingDays && _billingDays.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final d in _billingDays)
+                              Chip(
+                                label: Text(d.toString()),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                          ],
+                        ),
+                      if (_createMode == _CreateDueMode.loanSplit) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Billing period selection',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<_BillingPeriodSelectionMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: _BillingPeriodSelectionMode.single,
+                              label: Text('Single'),
+                              icon: Icon(Icons.radio_button_checked_rounded),
+                            ),
+                            ButtonSegment(
+                              value: _BillingPeriodSelectionMode.multiple,
+                              label: Text('Multiple'),
+                              icon: Icon(Icons.checklist_rounded),
+                            ),
+                          ],
+                          selected: {_billingPeriodSelectionMode},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (selection) {
+                            if (selection.isEmpty) return;
+                            _changeBillingPeriodMode(selection.first);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _billingPeriodDescription(),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (!_loadingBillingDays && _billingDays.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final d in _billingDays)
+                                _buildBillingDayChip(d),
+                            ],
+                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _billingPeriodSummary(),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Recurring billing day',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Choose the day to use for each generated due.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (!_loadingBillingDays && _billingDays.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final d in _billingDays)
+                                ChoiceChip(
+                                  key: Key('recurringBillingDayChip_$d'),
+                                  label: Text(d.toString()),
+                                  selected: _selectedBillingDay() == d,
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      _selectSingleBillingDay(d);
+                                    }
+                                  },
+                                ),
+                            ],
+                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _selectedBillingDay() == null
+                              ? 'Select a billing day.'
+                              : 'Selected billing day: ${_selectedBillingDay()}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: controller.isLoading ? null : _submit,
+                          icon: const Icon(Icons.add_circle_outline_rounded),
+                          label: const Text('Create'),
+                        ),
+                      ),
+                      if (controller.errorMessage != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          controller.errorMessage!,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              AppSectionHeader(
+                title: 'Preview',
+                trailing: duesPreview.isEmpty
+                    ? null
+                    : AppStatusPill(label: '${duesPreview.length} items'),
+              ),
+              const SizedBox(height: 10),
+              if (dueController.isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: LinearProgressIndicator(minHeight: 3),
+                ),
+              if (duesPreview.isEmpty)
+                AppSurface(
+                  child: Text(
+                    'You currently have no dues',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-              ],
-            ),
+                )
+              else
+                AppSurface(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      for (final d in duesPreview)
+                        ListTile(
+                          dense: true,
+                          title: Text(
+                            d.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(_dueSubtitle(d)),
+                          trailing: Text(formatPhp(d.price)),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
           );
         },
       ),
@@ -1016,5 +982,57 @@ class _CreatePageState extends State<CreatePage> {
     }
 
     return 'Due ${formatYmd(dt)}';
+  }
+}
+
+class _TwoColumnFields extends StatelessWidget {
+  final Widget first;
+  final Widget second;
+
+  const _TwoColumnFields({required this.first, required this.second});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 560) {
+          return Column(children: [first, const SizedBox(height: 12), second]);
+        }
+
+        return Row(
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: 12),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StartDateField extends StatelessWidget {
+  final DateTime? startDate;
+  final VoidCallback onTap;
+
+  const _StartDateField({required this.startDate, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Start date (optional)',
+          prefixIcon: Icon(Icons.event_rounded),
+        ),
+        child: Text(
+          startDate == null ? 'Today' : formatYmd(startDate!),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
   }
 }

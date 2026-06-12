@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due;
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
@@ -116,7 +117,10 @@ class _DueDetailPageState extends State<DueDetailPage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete'),
             ),
@@ -147,43 +151,11 @@ class _DueDetailPageState extends State<DueDetailPage> {
     required String value,
     IconData? icon,
   }) {
-    final theme = Theme.of(context);
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.68,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    return AppMetricCard(
+      label: label,
+      value: value,
+      icon: icon ?? Icons.info_outline_rounded,
+      emphasized: label == 'Remaining',
     );
   }
 
@@ -233,6 +205,8 @@ class _DueDetailPageState extends State<DueDetailPage> {
   }
 
   Widget _actions(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -252,7 +226,9 @@ class _DueDetailPageState extends State<DueDetailPage> {
           label: const Text('Mark all unpaid'),
         ),
         OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.colorScheme.error,
+          ),
           onPressed: controller.isLoading ? null : _deleteAll,
           icon: const Icon(Icons.delete_outline_rounded),
           label: Text(dues.length == 1 ? 'Delete due' : 'Delete loan'),
@@ -286,7 +262,7 @@ class _DueDetailPageState extends State<DueDetailPage> {
         due.paid ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
         color: due.paid
             ? theme.colorScheme.primary
-            : theme.colorScheme.onSurface.withValues(alpha: 0.54),
+            : theme.colorScheme.onSurfaceVariant,
       ),
       controlAffinity: ListTileControlAffinity.leading,
     );
@@ -300,19 +276,37 @@ class _DueDetailPageState extends State<DueDetailPage> {
         listenable: controller,
         builder: (context, child) {
           return SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
+            child: AppListView(
+              maxWidth: appWideContentMaxWidth,
               children: [
-                Text(
-                  _title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                AppSurface(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  side: BorderSide.none,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _title,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$_unpaidCount unpaid • ${formatPhp(_remainingAmount)} remaining',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer
+                              .withValues(alpha: 0.78),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$_unpaidCount unpaid • ${formatPhp(_remainingAmount)} remaining',
-                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
                 _summaryGrid(context),
@@ -325,11 +319,13 @@ class _DueDetailPageState extends State<DueDetailPage> {
                 const SizedBox(height: 20),
                 Text(
                   'Schedule',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                Card(
-                  clipBehavior: Clip.antiAlias,
+                AppSurface(
+                  padding: EdgeInsets.zero,
                   child: Column(
                     children: [
                       for (var i = 0; i < dues.length; i++) ...[

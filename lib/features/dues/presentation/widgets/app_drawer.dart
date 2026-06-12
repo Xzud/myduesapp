@@ -1,34 +1,26 @@
 import 'package:flutter/material.dart';
 
-import 'package:myduesapp/features/dues/presentation/pages/all_dues_showcase.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_navigation.dart';
 
 class AppDrawer extends StatelessWidget {
   final String current;
 
   const AppDrawer({super.key, required this.current});
 
-  void _openAllDues(BuildContext context) {
-    Navigator.pop(context);
-    if (current == '/all-dues') return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (context) => const AllDuesShowcasePage(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    Widget item({
-      required String label,
-      required IconData icon,
-      required String route,
-    }) {
+    final theme = Theme.of(context);
+
+    Widget item(AppNavigationDestination destination) {
+      final route = destination.route;
       final selected = current == route;
       return ListTile(
-        leading: Icon(icon),
-        title: Text(label),
+        leading: Icon(selected ? destination.selectedIcon : destination.icon),
+        title: Text(destination.label),
         selected: selected,
+        selectedTileColor: theme.colorScheme.primaryContainer,
+        selectedColor: theme.colorScheme.onPrimaryContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         onTap: () {
           Navigator.pop(context);
           if (selected) return;
@@ -40,34 +32,49 @@ class AppDrawer extends StatelessWidget {
     return Drawer(
       child: SafeArea(
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Text(
-                'MyDues',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/app_icon.png',
+                      width: 40,
+                      height: 40,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'MyDues',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'Dues management',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             const Divider(height: 1),
-            item(label: 'Home', icon: Icons.home_rounded, route: '/'),
-            item(label: 'Create', icon: Icons.add_rounded, route: '/create'),
-            item(
-              label: 'Overview',
-              icon: Icons.view_list_rounded,
-              route: '/overview',
-            ),
-            ListTile(
-              leading: const Icon(Icons.receipt_long_rounded),
-              title: const Text('All Dues'),
-              selected: current == '/all-dues',
-              onTap: () => _openAllDues(context),
-            ),
-            item(
-              label: 'Settings',
-              icon: Icons.settings_rounded,
-              route: '/settings',
-            ),
+            const SizedBox(height: 8),
+            for (final destination in appNavigationDestinations) ...[
+              item(destination),
+              const SizedBox(height: 4),
+            ],
           ],
         ),
       ),

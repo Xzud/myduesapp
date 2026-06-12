@@ -5,7 +5,8 @@ import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/pages/due_detail.dart';
-import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
@@ -223,7 +224,10 @@ class _DuesPageState extends State<DuesPage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete'),
             ),
@@ -285,36 +289,38 @@ class _DuesPageState extends State<DuesPage> {
     required String emptyMessage,
   }) {
     if (months.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            emptyMessage,
-            style: Theme.of(context).textTheme.bodyLarge,
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return AppEmptyState(
+        icon: Icons.inbox_outlined,
+        title: emptyMessage,
+        message: 'Items will appear here as their status changes.',
       );
     }
 
     return RefreshIndicator(
       onRefresh: controller.fetchDues,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         itemCount: months.length,
         itemBuilder: (context, index) {
           final month = months[index];
-          return _MonthSection(
-            month: month,
-            groupByLoan: _groupByLoan,
-            groupByBillingDay: _groupByBillingDay,
-            loanComplete: _loanComplete,
-            paidCount: _paidCount,
-            loanTitle: _loanTitle,
-            onTogglePaid: _togglePaid,
-            onViewDetails: _openDetails,
-            onEditDue: _editDue,
-            onDeleteDue: _deleteDue,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: appWideContentMaxWidth,
+              ),
+              child: _MonthSection(
+                month: month,
+                groupByLoan: _groupByLoan,
+                groupByBillingDay: _groupByBillingDay,
+                loanComplete: _loanComplete,
+                paidCount: _paidCount,
+                loanTitle: _loanTitle,
+                onTogglePaid: _togglePaid,
+                onViewDetails: _openDetails,
+                onEditDue: _editDue,
+                onDeleteDue: _deleteDue,
+              ),
+            ),
           );
         },
       ),
@@ -323,18 +329,16 @@ class _DuesPageState extends State<DuesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Overview'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: controller.fetchDues,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(current: '/overview'),
+    return AppScaffold(
+      currentRoute: '/overview',
+      title: const Text('Overview'),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: controller.fetchDues,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, child) {
@@ -343,19 +347,29 @@ class _DuesPageState extends State<DuesPage> {
           }
 
           if (controller.errorMessage != null) {
-            return Center(child: Text('Error: ${controller.errorMessage}'));
+            return AppEmptyState(
+              icon: Icons.error_outline_rounded,
+              title: 'Overview unavailable',
+              message: 'Error: ${controller.errorMessage}',
+              action: FilledButton.icon(
+                onPressed: controller.fetchDues,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
+            );
           }
 
           final months = controller.dues;
           if (months.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No dues found. Create a loan split from the Create page.',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
-                ),
+            return AppEmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: 'No dues found.',
+              message: 'Create a loan split from the Create page.',
+              action: FilledButton.icon(
+                onPressed: () =>
+                    Navigator.pushReplacementNamed(context, '/create'),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Create due'),
               ),
             );
           }
@@ -365,30 +379,44 @@ class _DuesPageState extends State<DuesPage> {
 
           return DefaultTabController(
             length: 2,
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                TabBar(
-                  tabs: [
-                    Tab(text: 'Payable (${payableMonths.length})'),
-                    Tab(text: 'Paid (${paidMonths.length})'),
-                  ],
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _buildMonthlyList(
-                        months: payableMonths,
-                        emptyMessage: 'No payable dues right now.',
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: appWideContentMaxWidth,
+                        ),
+                        child: AppSurface(
+                          padding: const EdgeInsets.all(4),
+                          child: TabBar(
+                            tabs: [
+                              Tab(text: 'Payable (${payableMonths.length})'),
+                              Tab(text: 'Paid (${paidMonths.length})'),
+                            ],
+                          ),
+                        ),
                       ),
-                      _buildMonthlyList(
-                        months: paidMonths,
-                        emptyMessage: 'No paid dues yet.',
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildMonthlyList(
+                          months: payableMonths,
+                          emptyMessage: 'No payable dues right now.',
+                        ),
+                        _buildMonthlyList(
+                          months: paidMonths,
+                          emptyMessage: 'No paid dues yet.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -440,39 +468,35 @@ class _MonthSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final billingGroups = groupByBillingDay(month.dues);
     final total = _monthTotal(month.dues);
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  month.month,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Total ${formatPhp(total)}',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ],
+          AppSectionHeader(
+            title: month.month,
+            trailing: AppStatusPill(
+              label: 'Total ${formatPhp(total)}',
+              icon: Icons.payments_outlined,
+              emphasized: true,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           for (final entry in billingGroups.entries)
             Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    entry.key > 0 ? 'Billing day ${entry.key}' : 'Billing day',
-                    style: Theme.of(context).textTheme.labelLarge,
+                  AppStatusPill(
+                    label: entry.key > 0
+                        ? 'Billing day ${entry.key}'
+                        : 'Billing day',
+                    icon: Icons.event_available_outlined,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   for (final loanEntry in groupByLoan(entry.value).entries)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -489,6 +513,13 @@ class _MonthSection extends StatelessWidget {
                       ),
                     ),
                 ],
+              ),
+            ),
+          if (billingGroups.isEmpty)
+            Text(
+              'No dues for this month.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
         ],
@@ -522,8 +553,10 @@ class _LoanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    final theme = Theme.of(context);
+
+    return AppSurface(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           for (var index = 0; index < dues.length; index++)
@@ -548,11 +581,19 @@ class _LoanCard extends StatelessWidget {
                           dues[index].installmentCount != null
                       ? '$title • Installment ${dues[index].installmentIndex}/${dues[index].installmentCount}'
                       : title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 subtitle: Text(
                   _subtitle(dues[index], includeGroupSummary: index == 0),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 trailing: PopupMenuButton<String>(
+                  tooltip: 'Due actions',
                   onSelected: (value) {
                     if (value == 'details') {
                       onViewDetails(dues[index]);

@@ -4,7 +4,8 @@ import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due, MonthlyDue;
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
-import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
@@ -173,7 +174,10 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete'),
             ),
@@ -218,7 +222,10 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Delete all'),
             ),
@@ -341,27 +348,17 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Text(
-                            complete ? 'Fully paid' : 'Not yet complete',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                          AppStatusPill(
+                            label: complete ? 'Fully paid' : 'Not yet complete',
+                            icon: complete
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.pending_actions_outlined,
+                            emphasized: complete,
                           ),
                           const Spacer(),
                           Text(
                             formatPhp(_totalAmount(dues)),
                             style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Icon(Icons.info_outline, size: 18),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Top border: green = paid, gray = not yet.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
                           ),
                         ],
                       ),
@@ -409,18 +406,16 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('All Dues'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: controller.fetchDues,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(current: '/all-dues'),
+    return AppScaffold(
+      currentRoute: '/all-dues',
+      title: const Text('All Dues'),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: controller.fetchDues,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, child) {
@@ -429,15 +424,29 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
           }
 
           if (controller.errorMessage != null && controller.dues.isEmpty) {
-            return Center(child: Text('Error: ${controller.errorMessage}'));
+            return AppEmptyState(
+              icon: Icons.error_outline_rounded,
+              title: 'All dues unavailable',
+              message: 'Error: ${controller.errorMessage}',
+              action: FilledButton.icon(
+                onPressed: controller.fetchDues,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
+            );
           }
 
           final allDues = _flattenDues(controller.dues);
           if (allDues.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No dues found yet.'),
+            return AppEmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: 'No dues found yet.',
+              message: 'Create dues to see grouped payable segments here.',
+              action: FilledButton.icon(
+                onPressed: () =>
+                    Navigator.pushReplacementNamed(context, '/create'),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Create due'),
               ),
             );
           }
@@ -455,38 +464,63 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
           return RefreshIndicator(
             onRefresh: controller.fetchDues,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Grouped dues',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${allDues.length} total due(s) across ${groupedDues.length} group(s). Tap a group to open its full payable segmentation.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: appWideContentMaxWidth,
+                    ),
+                    child: AppSurface(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      side: BorderSide.none,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Grouped dues',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${allDues.length} total due(s) across ${groupedDues.length} group(s). Tap a group to open its full payable segmentation.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer
+                                      .withValues(alpha: 0.78),
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 for (final entry in groupEntries) ...[
-                  _DueGroupCard(
-                    dues: entry.value,
-                    title: _loanTitle(entry.value),
-                    paid: _paidCount(entry.value),
-                    total: entry.value.length,
-                    complete: _loanComplete(entry.value),
-                    onTap: () => _openSegmentationSheet(
-                      groupKey: entry.key,
-                      title: _loanTitle(entry.value),
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: appWideContentMaxWidth,
+                      ),
+                      child: _DueGroupCard(
+                        dues: entry.value,
+                        title: _loanTitle(entry.value),
+                        paid: _paidCount(entry.value),
+                        total: entry.value.length,
+                        complete: _loanComplete(entry.value),
+                        onTap: () => _openSegmentationSheet(
+                          groupKey: entry.key,
+                          title: _loanTitle(entry.value),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -537,57 +571,64 @@ class _DueGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topBorderColor = complete ? Colors.green : Colors.grey;
+    final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border(top: BorderSide(color: topBorderColor, width: 4)),
-      ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+    return AppSurface(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AppStatusPill(
+                    label: complete ? 'Paid' : '$paid/$total',
+                    icon: complete
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.pending_actions_outlined,
+                    emphasized: complete,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              LinearProgressIndicator(
+                minHeight: 4,
+                borderRadius: BorderRadius.circular(999),
+                value: total == 0 ? 0 : paid / total,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _rangeLabel(dues),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text('$paid/$total'),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  minHeight: 3,
-                  value: total == 0 ? 0 : paid / total,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _rangeLabel(dues),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -623,41 +664,42 @@ class _SegmentationDueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topBorderColor = due.paid ? Colors.green : Colors.grey;
+    final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border(top: BorderSide(color: topBorderColor, width: 4)),
-      ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        child: Opacity(
-          opacity: due.paid ? 0.72 : 1,
-          child: ListTile(
-            onTap: due.id <= 0 ? null : () => onTogglePaid(due, !due.paid),
-            leading: Checkbox(
-              value: due.paid,
-              onChanged: due.id <= 0
-                  ? null
-                  : (value) => onTogglePaid(due, value ?? false),
+    return AppSurface(
+      padding: EdgeInsets.zero,
+      child: Opacity(
+        opacity: due.paid ? 0.72 : 1,
+        child: ListTile(
+          onTap: due.id <= 0 ? null : () => onTogglePaid(due, !due.paid),
+          leading: Checkbox(
+            value: due.paid,
+            onChanged: due.id <= 0
+                ? null
+                : (value) => onTogglePaid(due, value ?? false),
+          ),
+          title: Text(
+            due.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-            title: Text(due.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text(_subtitle(due)),
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) async {
-                if (value == 'edit') {
-                  await onEditDue(due);
-                } else if (value == 'delete') {
-                  await onDeleteDue(due);
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('Edit')),
-                PopupMenuItem(value: 'delete', child: Text('Delete')),
-              ],
-            ),
+          ),
+          subtitle: Text(_subtitle(due)),
+          trailing: PopupMenuButton<String>(
+            tooltip: 'Due actions',
+            onSelected: (value) async {
+              if (value == 'edit') {
+                await onEditDue(due);
+              } else if (value == 'delete') {
+                await onDeleteDue(due);
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit')),
+              PopupMenuItem(value: 'delete', child: Text('Delete')),
+            ],
           ),
         ),
       ),
