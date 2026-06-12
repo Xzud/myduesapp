@@ -4,6 +4,7 @@ import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due, MonthlyDue;
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
+import 'package:myduesapp/features/dues/presentation/pages/due_detail.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_drawer.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
@@ -90,6 +91,35 @@ class _DuesPageState extends State<DuesPage> {
     await controller.togglePaid(dueId: due.id, paid: paid);
     if (!mounted) return;
     _showErrorIfAny();
+  }
+
+  List<Due> _detailDuesFor(Due due) {
+    if (due.loanId == null || due.loanId!.isEmpty) {
+      return [due];
+    }
+
+    final all = <Due>[];
+    for (final month in controller.dues) {
+      all.addAll(month.dues.where((item) => item.loanId == due.loanId));
+    }
+
+    return all.isEmpty ? [due] : all;
+  }
+
+  Future<void> _openDetails(Due due) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) =>
+            DueDetailPage(dues: _detailDuesFor(due), controller: controller),
+      ),
+    );
+
+    if (!mounted) return;
+    if (changed == true) {
+      await controller.fetchDues();
+      if (!mounted) return;
+      _showErrorIfAny();
+    }
   }
 
   Future<void> _editDue(Due due) async {
@@ -282,6 +312,7 @@ class _DuesPageState extends State<DuesPage> {
             paidCount: _paidCount,
             loanTitle: _loanTitle,
             onTogglePaid: _togglePaid,
+            onViewDetails: _openDetails,
             onEditDue: _editDue,
             onDeleteDue: _deleteDue,
           );
@@ -367,6 +398,7 @@ class _DuesPageState extends State<DuesPage> {
 }
 
 typedef TogglePaid = Future<void> Function(Due due, bool paid);
+typedef ViewDetails = Future<void> Function(Due due);
 typedef EditDue = Future<void> Function(Due due);
 typedef DeleteDue = Future<void> Function(Due due);
 typedef GroupByLoan = Map<String, List<Due>> Function(List<Due> dues);
@@ -383,6 +415,7 @@ class _MonthSection extends StatelessWidget {
   final PaidCount paidCount;
   final LoanTitle loanTitle;
   final TogglePaid onTogglePaid;
+  final ViewDetails onViewDetails;
   final EditDue onEditDue;
   final DeleteDue onDeleteDue;
 
@@ -394,6 +427,7 @@ class _MonthSection extends StatelessWidget {
     required this.paidCount,
     required this.loanTitle,
     required this.onTogglePaid,
+    required this.onViewDetails,
     required this.onEditDue,
     required this.onDeleteDue,
   });
@@ -449,6 +483,7 @@ class _MonthSection extends StatelessWidget {
                         paid: paidCount(loanEntry.value),
                         total: loanEntry.value.length,
                         onTogglePaid: onTogglePaid,
+                        onViewDetails: onViewDetails,
                         onEditDue: onEditDue,
                         onDeleteDue: onDeleteDue,
                       ),
@@ -469,6 +504,7 @@ class _LoanCard extends StatelessWidget {
   final int paid;
   final int total;
   final TogglePaid onTogglePaid;
+  final ViewDetails onViewDetails;
   final EditDue onEditDue;
   final DeleteDue onDeleteDue;
 
@@ -479,6 +515,7 @@ class _LoanCard extends StatelessWidget {
     required this.paid,
     required this.total,
     required this.onTogglePaid,
+    required this.onViewDetails,
     required this.onEditDue,
     required this.onDeleteDue,
   });
@@ -517,13 +554,19 @@ class _LoanCard extends StatelessWidget {
                 ),
                 trailing: PopupMenuButton<String>(
                   onSelected: (value) {
-                    if (value == 'edit') {
+                    if (value == 'details') {
+                      onViewDetails(dues[index]);
+                    } else if (value == 'edit') {
                       onEditDue(dues[index]);
                     } else if (value == 'delete') {
                       onDeleteDue(dues[index]);
                     }
                   },
                   itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'details',
+                      child: Text('View details'),
+                    ),
                     PopupMenuItem(value: 'edit', child: Text('Edit')),
                     PopupMenuItem(value: 'delete', child: Text('Delete')),
                   ],

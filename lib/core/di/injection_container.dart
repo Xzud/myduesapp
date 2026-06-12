@@ -7,6 +7,7 @@ import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart'
 import 'package:myduesapp/features/dues/infrastructure/repositories/due_repository_impl.dart';
 import 'package:myduesapp/features/dues/infrastructure/repositories/settings_repository_impl.dart';
 import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
+import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
@@ -52,6 +53,9 @@ Future<void> init() async {
   sl.registerLazySingleton<CreateSplitDue>(
     () => CreateSplitDue(repository: sl()),
   );
+  sl.registerLazySingleton<CreateRecurringDue>(
+    () => CreateRecurringDue(repository: sl()),
+  );
   sl.registerLazySingleton<GetDashboardSummary>(
     () => GetDashboardSummary(repository: sl()),
   );
@@ -72,7 +76,11 @@ Future<void> init() async {
     ),
   );
   sl.registerFactory(
-    () => DueFormController(getPaymentDates: sl(), createSplitDue: sl()),
+    () => DueFormController(
+      getPaymentDates: sl(),
+      createSplitDue: sl(),
+      createRecurringDue: sl(),
+    ),
   );
   sl.registerFactory(
     () => SettingsController(

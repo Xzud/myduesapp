@@ -60,6 +60,20 @@ class DueController extends ChangeNotifier {
     }
   }
 
+  Future<void> setDueItemsPaid(List<int> dueIds, bool paid) async {
+    final ids = dueIds.where((id) => id > 0).toSet().toList()..sort();
+    if (ids.isEmpty) {
+      return;
+    }
+
+    await _runMutation(() async {
+      for (final id in ids) {
+        await setDuePaid.call(id, paid);
+      }
+      _dues = await getAllDues.call();
+    });
+  }
+
   Future<void> updateDueItem(DueEntity due) async {
     await _runMutation(() async {
       await updateDue.call(due);

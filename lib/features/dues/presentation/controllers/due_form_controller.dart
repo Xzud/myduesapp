@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
@@ -22,6 +23,7 @@ class InstallmentPreview {
 class DueFormController extends ChangeNotifier {
   final GetPaymentDates getPaymentDates;
   final CreateSplitDue createSplitDue;
+  final CreateRecurringDue createRecurringDue;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -32,6 +34,7 @@ class DueFormController extends ChangeNotifier {
   DueFormController({
     required this.getPaymentDates,
     required this.createSplitDue,
+    required this.createRecurringDue,
   });
 
   Future<List<int>> loadBillingDays() async {
@@ -161,6 +164,40 @@ class DueFormController extends ChangeNotifier {
       if (kDebugMode) {
         // ignore: avoid_print
         print('Error creating split due: $e');
+      }
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> submitRecurringDue({
+    required String name,
+    required double inputAmount,
+    required int billingDay,
+    required int recurringInterval,
+    required int occurrenceCount,
+    DateTime? startDate,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await createRecurringDue.call(
+        name: name,
+        amount: inputAmount,
+        billingDay: billingDay,
+        recurringInterval: recurringInterval,
+        occurrenceCount: occurrenceCount,
+        startDate: startDate,
+      );
+    } catch (e) {
+      _errorMessage = e.toString();
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('Error creating recurring due: $e');
       }
       rethrow;
     } finally {

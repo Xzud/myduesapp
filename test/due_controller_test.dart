@@ -190,4 +190,42 @@ void main() {
     verify(() => mockDeleteDue.call(1)).called(1);
     verify(() => mockDeleteDue.call(2)).called(1);
   });
+
+  test('should mark multiple dues paid and refresh once', () async {
+    var calls = 0;
+    when(() => mockGetAllDues()).thenAnswer((_) async {
+      calls += 1;
+      return [
+        MonthlyDue(
+          month: 'May 2026',
+          dues: [
+            Due(
+              id: 1,
+              name: 'Loan A',
+              price: 100,
+              paid: calls > 1,
+              dayOfMonth: 5,
+            ),
+            Due(
+              id: 2,
+              name: 'Loan A',
+              price: 100,
+              paid: calls > 1,
+              dayOfMonth: 5,
+            ),
+          ],
+        ),
+      ];
+    });
+    when(() => mockSetDuePaid.call(any(), true)).thenAnswer((_) async {});
+
+    await controller.fetchDues();
+    await controller.setDueItemsPaid([2, 1, 2], true);
+
+    expect(controller.errorMessage, isNull);
+    expect(controller.dues.first.dues.every((due) => due.paid), true);
+    verify(() => mockSetDuePaid.call(1, true)).called(1);
+    verify(() => mockSetDuePaid.call(2, true)).called(1);
+    verify(() => mockGetAllDues()).called(2);
+  });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
@@ -25,6 +26,8 @@ class _MockGetPaymentDates extends Mock implements GetPaymentDates {}
 
 class _MockCreateSplitDue extends Mock implements CreateSplitDue {}
 
+class _MockCreateRecurringDue extends Mock implements CreateRecurringDue {}
+
 class _MockGetAllDues extends Mock implements GetAllDues {}
 
 class _MockSetDuePaid extends Mock implements SetDuePaid {}
@@ -38,6 +41,7 @@ class _FakeDueFormController extends DueFormController {
     : super(
         getPaymentDates: _MockGetPaymentDates(),
         createSplitDue: _MockCreateSplitDue(),
+        createRecurringDue: _MockCreateRecurringDue(),
       );
 
   @override
@@ -55,6 +59,8 @@ class _FakeDueController extends DueController {
 
   final List<MonthlyDue> _dues;
   final List<int> toggleCalls = [];
+  final List<List<int>> bulkPaidCalls = [];
+  final List<bool> bulkPaidValues = [];
 
   @override
   List<MonthlyDue> get dues => _dues;
@@ -74,6 +80,21 @@ class _FakeDueController extends DueController {
     for (final month in _dues) {
       for (final due in month.dues) {
         if (due.id == dueId) {
+          due.paid = paid;
+        }
+      }
+    }
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setDueItemsPaid(List<int> dueIds, bool paid) async {
+    bulkPaidCalls.add([...dueIds]);
+    bulkPaidValues.add(paid);
+    final ids = dueIds.toSet();
+    for (final month in _dues) {
+      for (final due in month.dues) {
+        if (ids.contains(due.id)) {
           due.paid = paid;
         }
       }
@@ -256,6 +277,8 @@ void main() {
 
     expect(find.text('Create'), findsWidgets);
     expect(find.text('Create loan split'), findsOneWidget);
+    expect(find.text('Loan split'), findsOneWidget);
+    expect(find.text('Recurring bill'), findsOneWidget);
     expect(find.text('Principal'), findsOneWidget);
     expect(find.text('Monthly'), findsOneWidget);
 
@@ -314,6 +337,29 @@ void main() {
     expect(find.text('Total interest amount (PHP)'), findsOneWidget);
   });
 
+  testWidgets('create page renders recurring bill form', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CreatePage(title: 'Create', autoLoadPreview: false),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('Recurring bill'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create recurring bill'), findsOneWidget);
+    expect(find.text('Amount (PHP)'), findsOneWidget);
+    expect(find.byKey(const Key('recurringIntervalField')), findsOneWidget);
+    expect(find.byKey(const Key('occurrencesField')), findsOneWidget);
+    expect(find.text('Recurring billing day'), findsOneWidget);
+    expect(find.text('Selected billing day: 5'), findsOneWidget);
+    expect(find.text('Include Interest'), findsNothing);
+    expect(find.byKey(const Key('installmentsField')), findsNothing);
+  });
+
   testWidgets('overview row toggles paid when the card is tapped', (
     WidgetTester tester,
   ) async {
@@ -358,5 +404,71 @@ void main() {
 
     expect(controller.toggleCalls, [1]);
     expect(controller.dues.first.dues.first.paid, true);
+  });
+
+  testWidgets('overview opens loan details and marks all installments paid', (
+    WidgetTester tester,
+  ) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'May 2026',
+        dues: [
+          Due(
+            id: 1,
+            loanId: 'loan-1',
+            name: 'Laptop',
+            price: 6000,
+            paid: false,
+            installmentIndex: 1,
+            installmentCount: 2,
+            dayOfMonth: 5,
+            dueDate: '2026-05-05',
+          ),
+          Due(
+            id: 2,
+            loanId: 'loan-1',
+            name: 'Laptop',
+            price: 6000,
+            paid: false,
+            installmentIndex: 2,
+            installmentCount: 2,
+            dayOfMonth: 15,
+            dueDate: '2026-05-15',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: DuesPage()));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Laptop • Installment 1/2'), findsOneWidget);
+    expect(find.text('Laptop • Installment 2/2'), findsOneWidget);
+
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View details').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Loan details'), findsOneWidget);
+    expect(find.text('Laptop'), findsOneWidget);
+    expect(find.text('Remaining'), findsOneWidget);
+    expect(find.text('Php 12000.00'), findsWidgets);
+    expect(find.text('0/2'), findsOneWidget);
+
+    await tester.tap(find.text('Mark all paid'));
+    await tester.pumpAndSettle();
+
+    expect(controller.bulkPaidCalls, [
+      [1, 2],
+    ]);
+    expect(controller.bulkPaidValues, [true]);
+    expect(controller.dues.first.dues.every((due) => due.paid), true);
+    expect(find.text('2/2'), findsOneWidget);
   });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
@@ -7,19 +8,24 @@ import 'package:myduesapp/features/dues/presentation/controllers/due_form_contro
 
 class MockCreateSplitDue extends Mock implements CreateSplitDue {}
 
+class MockCreateRecurringDue extends Mock implements CreateRecurringDue {}
+
 class MockGetPaymentDates extends Mock implements GetPaymentDates {}
 
 void main() {
   late DueFormController controller;
   late MockCreateSplitDue mockCreateSplitDue;
+  late MockCreateRecurringDue mockCreateRecurringDue;
   late MockGetPaymentDates mockGetPaymentDates;
 
   setUp(() {
     mockCreateSplitDue = MockCreateSplitDue();
+    mockCreateRecurringDue = MockCreateRecurringDue();
     mockGetPaymentDates = MockGetPaymentDates();
     controller = DueFormController(
       getPaymentDates: mockGetPaymentDates,
       createSplitDue: mockCreateSplitDue,
+      createRecurringDue: mockCreateRecurringDue,
     );
   });
 
@@ -154,5 +160,41 @@ void main() {
 
     expect(controller.isLoading, false);
     expect(controller.errorMessage, 'Exception: Failed to create split');
+  });
+
+  test('submits recurring due successfully', () async {
+    when(
+      () => mockCreateRecurringDue(
+        name: any(named: 'name'),
+        amount: any(named: 'amount'),
+        billingDay: any(named: 'billingDay'),
+        recurringInterval: any(named: 'recurringInterval'),
+        occurrenceCount: any(named: 'occurrenceCount'),
+        startDate: any(named: 'startDate'),
+      ),
+    ).thenAnswer((_) async {});
+
+    final startDate = DateTime(2026, 6, 12);
+    await controller.submitRecurringDue(
+      name: 'Internet',
+      inputAmount: 1800,
+      billingDay: 15,
+      recurringInterval: 1,
+      occurrenceCount: 12,
+      startDate: startDate,
+    );
+
+    expect(controller.errorMessage, isNull);
+    expect(controller.isLoading, false);
+    verify(
+      () => mockCreateRecurringDue(
+        name: 'Internet',
+        amount: 1800,
+        billingDay: 15,
+        recurringInterval: 1,
+        occurrenceCount: 12,
+        startDate: startDate,
+      ),
+    ).called(1);
   });
 }
