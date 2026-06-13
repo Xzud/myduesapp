@@ -4,6 +4,7 @@ import 'package:myduesapp/features/dues/application/usecases/create_split_due.da
 import 'package:myduesapp/features/dues/application/usecases/get_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 
@@ -27,6 +28,7 @@ class DueFormController extends ChangeNotifier {
   final GetPaymentDates getPaymentDates;
   final CreateSplitDue createSplitDue;
   final CreateRecurringDue createRecurringDue;
+  final SyncRecurringTemplates syncRecurringTemplates;
   final GetDefaultBillingPeriodMode? getDefaultBillingPeriodMode;
   final SyncDueReminders syncDueReminders;
 
@@ -40,6 +42,7 @@ class DueFormController extends ChangeNotifier {
     required this.getPaymentDates,
     required this.createSplitDue,
     required this.createRecurringDue,
+    required this.syncRecurringTemplates,
     required this.syncDueReminders,
     this.getDefaultBillingPeriodMode,
   });
@@ -191,7 +194,6 @@ class DueFormController extends ChangeNotifier {
     required double inputAmount,
     required int billingDay,
     required int recurringInterval,
-    required int occurrenceCount,
     DateTime? startDate,
   }) async {
     _isLoading = true;
@@ -204,9 +206,9 @@ class DueFormController extends ChangeNotifier {
         amount: inputAmount,
         billingDay: billingDay,
         recurringInterval: recurringInterval,
-        occurrenceCount: occurrenceCount,
         startDate: startDate,
       );
+      await syncRecurringTemplates.call();
       await syncDueReminders.call();
     } catch (e) {
       _errorMessage = e.toString();

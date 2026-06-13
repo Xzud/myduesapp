@@ -1,13 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/end_recurring_series.dart';
 import 'package:myduesapp/features/dues/application/usecases/filter_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/update_recurring_series.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
@@ -23,6 +26,13 @@ class MockDeleteDue extends Mock implements DeleteDue {}
 class MockGetDueFilterState extends Mock implements GetDueFilterState {}
 
 class MockSetDueFilterState extends Mock implements SetDueFilterState {}
+
+class MockUpdateRecurringSeries extends Mock implements UpdateRecurringSeries {}
+
+class MockEndRecurringSeries extends Mock implements EndRecurringSeries {}
+
+class MockSyncRecurringTemplates extends Mock
+    implements SyncRecurringTemplates {}
 
 class MockSyncDueReminders extends Mock implements SyncDueReminders {}
 
@@ -41,6 +51,9 @@ void main() {
   late MockDeleteDue mockDeleteDue;
   late MockGetDueFilterState mockGetDueFilterState;
   late MockSetDueFilterState mockSetDueFilterState;
+  late MockUpdateRecurringSeries mockUpdateRecurringSeries;
+  late MockEndRecurringSeries mockEndRecurringSeries;
+  late MockSyncRecurringTemplates mockSyncRecurringTemplates;
   late MockSyncDueReminders mockSyncDueReminders;
   late FilterDues filterDues;
 
@@ -51,12 +64,18 @@ void main() {
     mockDeleteDue = MockDeleteDue();
     mockGetDueFilterState = MockGetDueFilterState();
     mockSetDueFilterState = MockSetDueFilterState();
+    mockUpdateRecurringSeries = MockUpdateRecurringSeries();
+    mockEndRecurringSeries = MockEndRecurringSeries();
+    mockSyncRecurringTemplates = MockSyncRecurringTemplates();
     mockSyncDueReminders = MockSyncDueReminders();
     filterDues = FilterDues();
     when(
       () => mockGetDueFilterState.call(),
     ).thenAnswer((_) async => const DueFilterState());
     when(() => mockSetDueFilterState.call(any())).thenAnswer((_) async {});
+    when(
+      () => mockSyncRecurringTemplates.call(),
+    ).thenAnswer((_) async => false);
     when(() => mockSyncDueReminders.call()).thenAnswer((_) async {});
     controller = DueController(
       getAllDues: mockGetAllDues,
@@ -66,6 +85,9 @@ void main() {
       setDuePaid: mockSetDuePaid,
       updateDue: mockUpdateDue,
       deleteDue: mockDeleteDue,
+      updateRecurringSeries: mockUpdateRecurringSeries,
+      endRecurringSeries: mockEndRecurringSeries,
+      syncRecurringTemplates: mockSyncRecurringTemplates,
       syncDueReminders: mockSyncDueReminders,
     );
   });
@@ -91,6 +113,7 @@ void main() {
     expect(controller.dues, hasLength(1));
     verify(() => mockGetAllDues()).called(1);
     verify(() => mockGetDueFilterState.call()).called(1);
+    verify(() => mockSyncRecurringTemplates.call()).called(1);
   });
 
   test('should load saved filter state only once', () async {
@@ -167,8 +190,9 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues.first.dues.first.paid, true);
     verify(() => mockSetDuePaid.call(1, true)).called(1);
+    verify(() => mockSyncRecurringTemplates.call()).called(2);
     verify(() => mockSyncDueReminders.call()).called(1);
-    verify(() => mockGetAllDues()).called(1);
+    verify(() => mockGetAllDues()).called(2);
   });
 
   test('should update due and refresh dues', () async {
@@ -205,6 +229,7 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues.first.dues.first.name, 'Loan A Updated');
     verify(() => mockUpdateDue.call(any())).called(1);
+    verify(() => mockSyncRecurringTemplates.call()).called(2);
     verify(() => mockSyncDueReminders.call()).called(1);
   });
 
@@ -237,6 +262,7 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues, isEmpty);
     verify(() => mockDeleteDue.call(1)).called(1);
+    verify(() => mockSyncRecurringTemplates.call()).called(2);
     verify(() => mockSyncDueReminders.call()).called(1);
   });
 
@@ -277,6 +303,7 @@ void main() {
     expect(controller.dues, isEmpty);
     verify(() => mockDeleteDue.call(1)).called(1);
     verify(() => mockDeleteDue.call(2)).called(1);
+    verify(() => mockSyncRecurringTemplates.call()).called(2);
     verify(() => mockSyncDueReminders.call()).called(1);
   });
 
@@ -315,6 +342,7 @@ void main() {
     expect(controller.dues.first.dues.every((due) => due.paid), true);
     verify(() => mockSetDuePaid.call(1, true)).called(1);
     verify(() => mockSetDuePaid.call(2, true)).called(1);
+    verify(() => mockSyncRecurringTemplates.call()).called(2);
     verify(() => mockSyncDueReminders.call()).called(1);
     verify(() => mockGetAllDues()).called(2);
   });

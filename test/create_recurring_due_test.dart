@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
-import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/entities/recurring_template_entity.dart';
 import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
 class MockDueRepository extends Mock implements DueRepository {}
@@ -11,110 +11,76 @@ void main() {
   late MockDueRepository mockDueRepository;
 
   setUpAll(() {
-    registerFallbackValue(<DueEntity>[
-      const DueEntity(name: '', amount: 0, dayOfMonth: 1),
-    ]);
+    registerFallbackValue(
+      const RecurringTemplateEntity(
+        id: 'template',
+        name: 'Name',
+        amount: 1,
+        billingDay: 1,
+        intervalMonths: 1,
+        startDate: '2026-01-01T00:00:00.000',
+      ),
+    );
   });
 
   setUp(() {
     mockDueRepository = MockDueRepository();
+    when(
+      () => mockDueRepository.createRecurringTemplate(any()),
+    ).thenAnswer((_) async {});
     usecase = CreateRecurringDue(repository: mockDueRepository);
   });
 
-  test(
-    'should create monthly recurring dues and clamp month-end dates',
-    () async {
-      when(() => mockDueRepository.createDues(any())).thenAnswer((_) async {});
-
-      await usecase.call(
-        name: 'Rent',
-        amount: 12000,
-        billingDay: 31,
-        recurringInterval: 1,
-        occurrenceCount: 3,
-        startDate: DateTime(2024, 1, 30),
-      );
-
-      final captured =
-          verify(
-                () => mockDueRepository.createDues(captureAny()),
-              ).captured.single
-              as List<DueEntity>;
-
-      expect(captured, hasLength(3));
-      expect(captured.map((due) => due.dueDate), [
-        '2024-01-31T00:00:00.000',
-        '2024-02-29T00:00:00.000',
-        '2024-03-31T00:00:00.000',
-      ]);
-      expect(captured.map((due) => due.dayOfMonth), [31, 31, 31]);
-      expect(captured.map((due) => due.recurring), [true, true, true]);
-      expect(captured.map((due) => due.recurringInterval), [1, 1, 1]);
-      expect(captured.map((due) => due.amount), [12000, 12000, 12000]);
-      expect(captured.map((due) => due.loanId).toSet(), hasLength(1));
-      expect(captured.first.loanId, startsWith('recurring_'));
-    },
-  );
-
-  test('should space recurring dues by the configured interval', () async {
-    when(() => mockDueRepository.createDues(any())).thenAnswer((_) async {});
+  test('should create a recurring template with validated fields', () async {
+    final startDate = DateTime(2026, 6, 12);
 
     await usecase.call(
-      name: 'Insurance',
-      amount: 2500,
-      billingDay: 5,
+      name: ' Internet ',
+      amount: 1800,
+      billingDay: 15,
       recurringInterval: 2,
-      occurrenceCount: 3,
-      startDate: DateTime(2024, 1, 1),
+      startDate: startDate,
     );
 
     final captured =
-        verify(() => mockDueRepository.createDues(captureAny())).captured.single
-            as List<DueEntity>;
+        verify(
+              () => mockDueRepository.createRecurringTemplate(captureAny()),
+            ).captured.single
+            as RecurringTemplateEntity;
 
-    expect(captured.map((due) => due.dueDate), [
-      '2024-01-05T00:00:00.000',
-      '2024-03-05T00:00:00.000',
-      '2024-05-05T00:00:00.000',
-    ]);
-    expect(captured.map((due) => due.recurringInterval), [2, 2, 2]);
+    expect(captured.id, startsWith('recurring_template_'));
+    expect(captured.name, 'Internet');
+    expect(captured.amount, 1800);
+    expect(captured.billingDay, 15);
+    expect(captured.intervalMonths, 2);
+    expect(captured.startDate, startDate.toIso8601String());
+    expect(captured.active, isTrue);
   });
 
-  test(
-    'should start in the next month when billing day already passed',
-    () async {
-      when(() => mockDueRepository.createDues(any())).thenAnswer((_) async {});
+  test('should default template start date to now when omitted', () async {
+    await usecase.call(
+      name: 'Rent',
+      amount: 12000,
+      billingDay: 31,
+      recurringInterval: 1,
+    );
 
-      await usecase.call(
-        name: 'Internet',
-        amount: 1800,
-        billingDay: 15,
-        recurringInterval: 1,
-        occurrenceCount: 2,
-        startDate: DateTime(2024, 1, 20),
-      );
+    final captured =
+        verify(
+              () => mockDueRepository.createRecurringTemplate(captureAny()),
+            ).captured.single
+            as RecurringTemplateEntity;
 
-      final captured =
-          verify(
-                () => mockDueRepository.createDues(captureAny()),
-              ).captured.single
-              as List<DueEntity>;
+    expect(DateTime.tryParse(captured.startDate), isNotNull);
+  });
 
-      expect(captured.map((due) => due.dueDate), [
-        '2024-02-15T00:00:00.000',
-        '2024-03-15T00:00:00.000',
-      ]);
-    },
-  );
-
-  test('should reject invalid recurring due values', () async {
+  test('should reject invalid recurring template values', () async {
     await expectLater(
       () => usecase.call(
         name: '',
         amount: 1200,
         billingDay: 15,
         recurringInterval: 1,
-        occurrenceCount: 12,
       ),
       throwsArgumentError,
     );
@@ -124,7 +90,6 @@ void main() {
         amount: 0,
         billingDay: 15,
         recurringInterval: 1,
-        occurrenceCount: 12,
       ),
       throwsArgumentError,
     );
@@ -134,7 +99,6 @@ void main() {
         amount: 1200,
         billingDay: 32,
         recurringInterval: 1,
-        occurrenceCount: 12,
       ),
       throwsArgumentError,
     );
@@ -144,17 +108,6 @@ void main() {
         amount: 1200,
         billingDay: 15,
         recurringInterval: 0,
-        occurrenceCount: 12,
-      ),
-      throwsArgumentError,
-    );
-    await expectLater(
-      () => usecase.call(
-        name: 'Rent',
-        amount: 1200,
-        billingDay: 15,
-        recurringInterval: 1,
-        occurrenceCount: 121,
       ),
       throwsArgumentError,
     );

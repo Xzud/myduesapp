@@ -30,6 +30,8 @@ class GetAllDues {
           dayOfMonth: currentDue.dayOfMonth,
           recurring: currentDue.recurring,
           recurringInterval: currentDue.recurringInterval,
+          recurringTemplateId: currentDue.recurringTemplateId,
+          generatedFromTemplate: currentDue.generatedFromTemplate,
           complete: currentDue.complete,
           createdAt: currentDue.createdAt,
           updatedAt: currentDue.updatedAt,
@@ -90,6 +92,8 @@ class Due {
   int dayOfMonth;
   bool recurring;
   int recurringInterval;
+  String? recurringTemplateId;
+  bool generatedFromTemplate;
   bool complete;
   String? createdAt;
   String? updatedAt;
@@ -106,6 +110,8 @@ class Due {
     this.dueDate,
     this.recurring = false,
     this.recurringInterval = 1,
+    this.recurringTemplateId,
+    this.generatedFromTemplate = false,
     this.complete = false,
     this.createdAt,
     this.updatedAt,
@@ -118,6 +124,8 @@ class Due {
       amount: price,
       recurring: recurring,
       recurringInterval: recurringInterval,
+      recurringTemplateId: recurringTemplateId,
+      generatedFromTemplate: generatedFromTemplate,
       dayOfMonth: dayOfMonth,
       loanId: loanId,
       installmentIndex: installmentIndex,

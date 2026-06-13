@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:myduesapp/core/theme.dart';
 import 'package:myduesapp/core/notifications/notification_service.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/presentation/pages/all_dues_showcase.dart';
 import 'package:myduesapp/features/dues/presentation/pages/create.dart';
 import 'package:myduesapp/features/dues/presentation/pages/dues.dart';
@@ -16,6 +17,7 @@ void main() async {
 
   await init();
   try {
+    await sl<SyncRecurringTemplates>().call();
     await sl<NotificationService>().initialize();
     await sl<SyncDueReminders>().call();
   } catch (e) {

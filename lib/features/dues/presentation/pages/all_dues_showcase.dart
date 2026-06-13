@@ -53,6 +53,11 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
   }
 
   String _recurringGroupKey(Due due) {
+    final templateId = due.recurringTemplateId?.trim();
+    if (templateId != null && templateId.isNotEmpty) {
+      return 'recurring:$templateId';
+    }
+
     final groupId = due.loanId?.trim();
     if (groupId != null && groupId.isNotEmpty) {
       return 'recurring:$groupId';
@@ -117,8 +122,6 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
 
   int _paidCount(List<Due> dues) => dues.where((due) => due.paid).length;
 
-  int _unpaidCount(List<Due> dues) => dues.where((due) => !due.paid).length;
-
   bool _isRecurringGroup(List<Due> dues) =>
       dues.isNotEmpty && dues.every((due) => due.recurring);
 
@@ -134,6 +137,16 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
   String _loanTitle(List<Due> dues) {
     if (dues.isEmpty) return '';
     return dues.first.name;
+  }
+
+  String? _recurringTemplateId(List<Due> dues) {
+    for (final due in dues) {
+      final templateId = due.recurringTemplateId?.trim();
+      if (templateId != null && templateId.isNotEmpty) {
+        return templateId;
+      }
+    }
+    return null;
   }
 
   double _totalAmount(List<Due> dues) {
@@ -274,13 +287,11 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
   }
 
   Future<bool> _endRecurringPayment(List<Due> dues) async {
-    final unpaidIds = dues
-        .where((due) => due.recurring && !due.paid && due.id > 0)
-        .map((due) => due.id)
-        .toList();
-    if (unpaidIds.isEmpty) {
+    final templateId = _recurringTemplateId(dues);
+    if (templateId == null) {
       return false;
     }
+    final futureUnpaidCount = _futureUnpaidCount(dues);
 
     final shouldEnd = await showDialog<bool>(
       context: context,
@@ -288,7 +299,7 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
         return AlertDialog(
           title: const Text('End recurring payment?'),
           content: Text(
-            'This will delete ${unpaidIds.length} unpaid scheduled occurrence(s) for ${_loanTitle(dues)} and keep paid history.',
+            'This will stop future generation for ${_loanTitle(dues)} and remove $futureUnpaidCount unpaid future occurrence(s). Paid and past history will stay intact.',
           ),
           actions: [
             TextButton(
@@ -312,7 +323,7 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
       return false;
     }
 
-    await controller.deleteDueItems(unpaidIds);
+    await controller.endRecurringSeriesItem(templateId);
     if (!mounted) {
       return false;
     }
@@ -382,6 +393,8 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
       amount: amount,
       recurring: due.recurring,
       recurringInterval: due.recurringInterval,
+      recurringTemplateId: due.recurringTemplateId,
+      generatedFromTemplate: due.generatedFromTemplate,
       dayOfMonth: due.dayOfMonth,
       loanId: due.loanId,
       installmentIndex: due.installmentIndex,
@@ -412,6 +425,159 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
     await controller.clearFilters();
     if (!mounted) return;
     _showErrorIfAny();
+  }
+
+  int _futureUnpaidCount(List<Due> dues) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return dues.where((due) {
+      if (!due.recurring || due.paid) {
+        return false;
+      }
+
+      final parsed = DateTime.tryParse(due.dueDate ?? '');
+      if (parsed == null) {
+        return false;
+      }
+
+      final dueDate = DateTime(parsed.year, parsed.month, parsed.day);
+      return dueDate.isAfter(today);
+    }).length;
+  }
+
+  Future<bool> _editRecurringSeries(List<Due> dues) async {
+    final templateId = _recurringTemplateId(dues);
+    if (templateId == null || dues.isEmpty) {
+      return false;
+    }
+
+    final seed = dues.last;
+    final nameCtrl = TextEditingController(text: _loanTitle(dues));
+    final amountCtrl = TextEditingController(
+      text: seed.price.toStringAsFixed(2),
+    );
+    final billingDayCtrl = TextEditingController(
+      text: _billingDayFor(seed).toString(),
+    );
+    final intervalCtrl = TextEditingController(
+      text: seed.recurringInterval.toString(),
+    );
+
+    final payload = await showDialog<_RecurringSeriesUpdatePayload>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit future occurrences'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  key: const Key('edit_recurring_name_field'),
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('edit_recurring_amount_field'),
+                  controller: amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Amount'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('edit_recurring_billing_day_field'),
+                  controller: billingDayCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: false,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Billing day'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('edit_recurring_interval_field'),
+                  controller: intervalCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: false,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Interval (months)',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Changes apply from the next unpaid occurrence onward. Paid and past history will stay unchanged.',
+                  style: Theme.of(dialogContext).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                final amount = double.tryParse(amountCtrl.text.trim());
+                final billingDay = int.tryParse(billingDayCtrl.text.trim());
+                final intervalMonths = int.tryParse(intervalCtrl.text.trim());
+                if (name.isEmpty ||
+                    amount == null ||
+                    amount <= 0 ||
+                    billingDay == null ||
+                    billingDay < 1 ||
+                    billingDay > 31 ||
+                    intervalMonths == null ||
+                    intervalMonths < 1) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Enter a valid name, amount, billing day, and interval.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(
+                  dialogContext,
+                  _RecurringSeriesUpdatePayload(
+                    name: name,
+                    amount: amount,
+                    billingDay: billingDay,
+                    intervalMonths: intervalMonths,
+                  ),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || payload == null) {
+      return false;
+    }
+
+    await controller.updateRecurringSeriesItem(
+      templateId: templateId,
+      name: payload.name,
+      amount: payload.amount,
+      billingDay: payload.billingDay,
+      intervalMonths: payload.intervalMonths,
+    );
+    if (!mounted) {
+      return false;
+    }
+
+    _showErrorIfAny();
+    return controller.errorMessage == null;
   }
 
   Future<void> _updateQuickView(DueQuickView value) async {
@@ -515,7 +681,6 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                   final total = dues.length;
                   final complete = _loanComplete(dues);
                   final recurring = _isRecurringGroup(dues);
-                  final unpaid = _unpaidCount(dues);
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,6 +737,7 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                               onTogglePaid: _togglePaid,
                               onEditDue: _editDue,
                               onDeleteDue: _deleteDue,
+                              allowActions: !recurring,
                             );
                           },
                         ),
@@ -580,38 +746,47 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                       if (recurring) ...[
                         SizedBox(
                           width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            onPressed: () async {
+                              final updated = await _editRecurringSeries(dues);
+                              if (updated && mounted && sheetContext.mounted) {
+                                Navigator.pop(sheetContext);
+                              }
+                            },
+                            icon: const Icon(Icons.edit_calendar_rounded),
+                            label: const Text('Edit future occurrences'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: unpaid == 0
-                                ? null
-                                : () async {
-                                    final ended = await _endRecurringPayment(
-                                      dues,
-                                    );
-                                    if (ended &&
-                                        mounted &&
-                                        sheetContext.mounted) {
-                                      Navigator.pop(sheetContext);
-                                    }
-                                  },
+                            onPressed: () async {
+                              final ended = await _endRecurringPayment(dues);
+                              if (ended && mounted && sheetContext.mounted) {
+                                Navigator.pop(sheetContext);
+                              }
+                            },
                             icon: const Icon(Icons.event_busy_rounded),
                             label: const Text('End recurring payment'),
                           ),
                         ),
                         const SizedBox(height: 8),
                       ],
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.tonalIcon(
-                          onPressed: () async {
-                            final deleted = await _deleteDueGroup(dues);
-                            if (deleted && mounted && sheetContext.mounted) {
-                              Navigator.pop(sheetContext);
-                            }
-                          },
-                          icon: const Icon(Icons.delete_forever_rounded),
-                          label: const Text('Delete Whole Due Group'),
+                      if (!recurring)
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            onPressed: () async {
+                              final deleted = await _deleteDueGroup(dues);
+                              if (deleted && mounted && sheetContext.mounted) {
+                                Navigator.pop(sheetContext);
+                              }
+                            },
+                            icon: const Icon(Icons.delete_forever_rounded),
+                            label: const Text('Delete Whole Due Group'),
+                          ),
                         ),
-                      ),
                     ],
                   );
                 },
@@ -784,6 +959,20 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
   }
 }
 
+class _RecurringSeriesUpdatePayload {
+  final String name;
+  final double amount;
+  final int billingDay;
+  final int intervalMonths;
+
+  const _RecurringSeriesUpdatePayload({
+    required this.name,
+    required this.amount,
+    required this.billingDay,
+    required this.intervalMonths,
+  });
+}
+
 class _DueGroupCard extends StatelessWidget {
   final List<Due> dues;
   final String title;
@@ -904,12 +1093,14 @@ class _SegmentationDueCard extends StatelessWidget {
   final TogglePaid onTogglePaid;
   final EditDue onEditDue;
   final DeleteDueCallback onDeleteDue;
+  final bool allowActions;
 
   const _SegmentationDueCard({
     required this.due,
     required this.onTogglePaid,
     required this.onEditDue,
     required this.onDeleteDue,
+    this.allowActions = true,
   });
 
   String _subtitle(Due d) {
@@ -946,20 +1137,22 @@ class _SegmentationDueCard extends StatelessWidget {
             ),
           ),
           subtitle: Text(_subtitle(due)),
-          trailing: PopupMenuButton<String>(
-            tooltip: 'Due actions',
-            onSelected: (value) async {
-              if (value == 'edit') {
-                await onEditDue(due);
-              } else if (value == 'delete') {
-                await onDeleteDue(due);
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: Text('Edit')),
-              PopupMenuItem(value: 'delete', child: Text('Delete')),
-            ],
-          ),
+          trailing: allowActions
+              ? PopupMenuButton<String>(
+                  tooltip: 'Due actions',
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      await onEditDue(due);
+                    } else if (value == 'delete') {
+                      await onDeleteDue(due);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                )
+              : null,
         ),
       ),
     );

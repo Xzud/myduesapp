@@ -39,7 +39,10 @@ class _DuesPageState extends State<DuesPage> {
   Map<String, List<Due>> _groupByLoan(List<Due> dues) {
     final out = <String, List<Due>>{};
     for (final due in dues) {
-      final key = due.loanId ?? 'single:${due.id}';
+      final templateId = due.recurringTemplateId?.trim();
+      final key = templateId != null && templateId.isNotEmpty
+          ? 'recurring:$templateId'
+          : due.loanId ?? 'single:${due.id}';
       out.putIfAbsent(key, () => []);
       out[key]!.add(due);
     }
@@ -104,6 +107,18 @@ class _DuesPageState extends State<DuesPage> {
   }
 
   List<Due> _detailDuesFor(Due due) {
+    final templateId = due.recurringTemplateId?.trim();
+    if (templateId != null && templateId.isNotEmpty) {
+      final all = <Due>[];
+      for (final month in controller.dues) {
+        all.addAll(
+          month.dues.where((item) => item.recurringTemplateId == templateId),
+        );
+      }
+
+      return all.isEmpty ? [due] : all;
+    }
+
     if (due.loanId == null || due.loanId!.isEmpty) {
       return [due];
     }
@@ -264,6 +279,8 @@ class _DuesPageState extends State<DuesPage> {
       amount: amount,
       recurring: due.recurring,
       recurringInterval: due.recurringInterval,
+      recurringTemplateId: due.recurringTemplateId,
+      generatedFromTemplate: due.generatedFromTemplate,
       dayOfMonth: due.dayOfMonth,
       loanId: due.loanId,
       installmentIndex: due.installmentIndex,
@@ -699,26 +716,28 @@ class _LoanCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: PopupMenuButton<String>(
-                  tooltip: 'Due actions',
-                  onSelected: (value) {
-                    if (value == 'details') {
-                      onViewDetails(dues[index]);
-                    } else if (value == 'edit') {
-                      onEditDue(dues[index]);
-                    } else if (value == 'delete') {
-                      onDeleteDue(dues[index]);
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: 'details',
-                      child: Text('View details'),
-                    ),
-                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    PopupMenuItem(value: 'delete', child: Text('Delete')),
-                  ],
-                ),
+                trailing: dues[index].recurring
+                    ? null
+                    : PopupMenuButton<String>(
+                        tooltip: 'Due actions',
+                        onSelected: (value) {
+                          if (value == 'details') {
+                            onViewDetails(dues[index]);
+                          } else if (value == 'edit') {
+                            onEditDue(dues[index]);
+                          } else if (value == 'delete') {
+                            onDeleteDue(dues[index]);
+                          }
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: 'details',
+                            child: Text('View details'),
+                          ),
+                          PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        ],
+                      ),
               ),
             ),
         ],

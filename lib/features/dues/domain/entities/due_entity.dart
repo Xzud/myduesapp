@@ -6,6 +6,8 @@ class DueEntity extends Equatable {
   final double amount;
   final bool recurring;
   final int recurringInterval;
+  final String? recurringTemplateId;
+  final bool generatedFromTemplate;
   final int dayOfMonth;
   final String? loanId;
   final int? installmentIndex;
@@ -22,6 +24,8 @@ class DueEntity extends Equatable {
     required this.amount,
     this.recurring = false,
     this.recurringInterval = 1,
+    this.recurringTemplateId,
+    this.generatedFromTemplate = false,
     required this.dayOfMonth,
     this.loanId,
     this.installmentIndex,
@@ -40,6 +44,8 @@ class DueEntity extends Equatable {
     amount,
     recurring,
     recurringInterval,
+    recurringTemplateId,
+    generatedFromTemplate,
     dayOfMonth,
     loanId,
     installmentIndex,

@@ -1,19 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/domain/entities/dashboard_summary_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 
 class MockGetDashboardSummary extends Mock implements GetDashboardSummary {}
 
+class MockSyncRecurringTemplates extends Mock
+    implements SyncRecurringTemplates {}
+
+class MockSyncDueReminders extends Mock implements SyncDueReminders {}
+
 void main() {
   late MockGetDashboardSummary mockGetDashboardSummary;
+  late MockSyncRecurringTemplates mockSyncRecurringTemplates;
+  late MockSyncDueReminders mockSyncDueReminders;
   late DashboardController controller;
 
   setUp(() {
     mockGetDashboardSummary = MockGetDashboardSummary();
+    mockSyncRecurringTemplates = MockSyncRecurringTemplates();
+    mockSyncDueReminders = MockSyncDueReminders();
+    when(
+      () => mockSyncRecurringTemplates.call(),
+    ).thenAnswer((_) async => false);
+    when(() => mockSyncDueReminders.call()).thenAnswer((_) async {});
     controller = DashboardController(
       getDashboardSummary: mockGetDashboardSummary,
+      syncRecurringTemplates: mockSyncRecurringTemplates,
+      syncDueReminders: mockSyncDueReminders,
     );
   });
 

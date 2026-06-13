@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
+import 'package:myduesapp/features/dues/domain/entities/recurring_template_entity.dart';
 import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
 
 class CreateRecurringDue {
@@ -13,7 +13,6 @@ class CreateRecurringDue {
     required double amount,
     required int billingDay,
     required int recurringInterval,
-    required int occurrenceCount,
     DateTime? startDate,
   }) async {
     final cleanName = name.trim();
@@ -29,77 +28,25 @@ class CreateRecurringDue {
     if (recurringInterval < 1) {
       throw ArgumentError('Recurring interval must be at least 1 month');
     }
-    if (occurrenceCount < 1) {
-      throw ArgumentError('Occurrence count must be at least 1');
-    }
-    if (occurrenceCount > 120) {
-      throw ArgumentError('Occurrence count must be 120 or less');
-    }
 
-    final firstDate = _nextDueDate(startDate ?? DateTime.now(), billingDay);
-    final recurringGroupId = _buildRecurringGroupId();
-    final dues = <DueEntity>[];
-
-    for (var i = 0; i < occurrenceCount; i++) {
-      final month = DateTime(
-        firstDate.year,
-        firstDate.month + (i * recurringInterval),
-        1,
-      );
-      final dueDate = _dateForBillingDay(
-        year: month.year,
-        month: month.month,
-        billingDay: billingDay,
-      );
-
-      dues.add(
-        DueEntity(
-          name: cleanName,
-          amount: amount,
-          recurring: true,
-          recurringInterval: recurringInterval,
-          dayOfMonth: billingDay,
-          loanId: recurringGroupId,
-          dueDate: dueDate.toIso8601String(),
-          paid: false,
-          complete: false,
-        ),
-      );
-    }
-
-    await repository.createDues(dues);
+    final nowIso = DateTime.now().toIso8601String();
+    final template = RecurringTemplateEntity(
+      id: _buildRecurringTemplateId(),
+      name: cleanName,
+      amount: amount,
+      billingDay: billingDay,
+      intervalMonths: recurringInterval,
+      startDate: (startDate ?? DateTime.now()).toIso8601String(),
+      active: true,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    );
+    await repository.createRecurringTemplate(template);
   }
 
-  String _buildRecurringGroupId() {
+  String _buildRecurringTemplateId() {
     final now = DateTime.now().microsecondsSinceEpoch;
     final rand = Random().nextInt(1 << 20);
-    return 'recurring_${now}_$rand';
-  }
-
-  DateTime _nextDueDate(DateTime from, int billingDay) {
-    final dateOnly = DateTime(from.year, from.month, from.day);
-    var monthCursor = DateTime(from.year, from.month, 1);
-
-    while (true) {
-      final candidate = _dateForBillingDay(
-        year: monthCursor.year,
-        month: monthCursor.month,
-        billingDay: billingDay,
-      );
-      if (!candidate.isBefore(dateOnly)) {
-        return candidate;
-      }
-      monthCursor = DateTime(monthCursor.year, monthCursor.month + 1, 1);
-    }
-  }
-
-  DateTime _dateForBillingDay({
-    required int year,
-    required int month,
-    required int billingDay,
-  }) {
-    final maxDay = DateTime(year, month + 1, 0).day;
-    final clampedDay = billingDay > maxDay ? maxDay : billingDay;
-    return DateTime(year, month, clampedDay);
+    return 'recurring_template_${now}_$rand';
   }
 }

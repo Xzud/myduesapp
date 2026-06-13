@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/end_recurring_series.dart';
 import 'package:myduesapp/features/dues/application/usecases/filter_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due, GetAllDues, MonthlyDue;
@@ -14,7 +15,9 @@ import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart
 import 'package:myduesapp/features/dues/application/usecases/set_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/update_recurring_series.dart';
 import 'package:myduesapp/features/dues/domain/entities/dashboard_summary_entity.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
@@ -49,12 +52,21 @@ class _MockSetDueFilterState extends Mock implements SetDueFilterState {}
 
 class _MockSyncDueReminders extends Mock implements SyncDueReminders {}
 
+class _MockSyncRecurringTemplates extends Mock
+    implements SyncRecurringTemplates {}
+
+class _MockUpdateRecurringSeries extends Mock
+    implements UpdateRecurringSeries {}
+
+class _MockEndRecurringSeries extends Mock implements EndRecurringSeries {}
+
 class _FakeDueFormController extends DueFormController {
   _FakeDueFormController()
     : super(
         getPaymentDates: _MockGetPaymentDates(),
         createSplitDue: _MockCreateSplitDue(),
         createRecurringDue: _MockCreateRecurringDue(),
+        syncRecurringTemplates: _MockSyncRecurringTemplates(),
         syncDueReminders: _MockSyncDueReminders(),
       );
 
@@ -72,6 +84,9 @@ class _FakeDueController extends DueController {
         setDuePaid: _MockSetDuePaid(),
         updateDue: _MockUpdateDue(),
         deleteDue: _MockDeleteDue(),
+        updateRecurringSeries: _MockUpdateRecurringSeries(),
+        endRecurringSeries: _MockEndRecurringSeries(),
+        syncRecurringTemplates: _MockSyncRecurringTemplates(),
         syncDueReminders: _MockSyncDueReminders(),
       );
 
@@ -82,6 +97,8 @@ class _FakeDueController extends DueController {
   final List<bool> bulkPaidValues = [];
   final List<List<int>> bulkDeleteCalls = [];
   final List<DueEntity> updatedDueItems = [];
+  final List<String> endedRecurringSeries = [];
+  final List<String> updatedRecurringSeries = [];
   DueFilterState _filterState = const DueFilterState();
   String _searchQuery = '';
 
@@ -209,11 +226,58 @@ class _FakeDueController extends DueController {
     }
     notifyListeners();
   }
+
+  @override
+  Future<void> updateRecurringSeriesItem({
+    required String templateId,
+    required String name,
+    required double amount,
+    required int billingDay,
+    required int intervalMonths,
+  }) async {
+    updatedRecurringSeries.add(templateId);
+    for (final month in _dues) {
+      for (final due in month.dues) {
+        if (due.recurringTemplateId == templateId && !due.paid) {
+          due.name = name;
+          due.price = amount;
+          due.dayOfMonth = billingDay;
+          due.recurringInterval = intervalMonths;
+        }
+      }
+    }
+    notifyListeners();
+  }
+
+  @override
+  Future<void> endRecurringSeriesItem(String templateId) async {
+    endedRecurringSeries.add(templateId);
+    final today = DateTime(2026, 6, 15);
+    for (final month in _dues) {
+      month.dues.removeWhere((due) {
+        if (due.recurringTemplateId != templateId || due.paid) {
+          return false;
+        }
+        final parsed = DateTime.tryParse(due.dueDate ?? '');
+        if (parsed == null) {
+          return false;
+        }
+        final dueDate = DateTime(parsed.year, parsed.month, parsed.day);
+        return dueDate.isAfter(today);
+      });
+    }
+    _dues.removeWhere((month) => month.dues.isEmpty);
+    notifyListeners();
+  }
 }
 
 class _FakeDashboardController extends DashboardController {
   _FakeDashboardController(this._summary)
-    : super(getDashboardSummary: _MockGetDashboardSummary());
+    : super(
+        getDashboardSummary: _MockGetDashboardSummary(),
+        syncRecurringTemplates: _MockSyncRecurringTemplates(),
+        syncDueReminders: _MockSyncDueReminders(),
+      );
 
   final DashboardSummary _summary;
 
@@ -482,7 +546,10 @@ void main() {
     expect(find.byKey(const Key('changeDueTypeButton')), findsOneWidget);
     expect(find.text('Amount (PHP)'), findsOneWidget);
     expect(find.byKey(const Key('recurringIntervalField')), findsOneWidget);
-    expect(find.byKey(const Key('occurrencesField')), findsOneWidget);
+    expect(
+      find.textContaining('next 6 unpaid occurrences scheduled automatically'),
+      findsOneWidget,
+    );
     expect(find.text('Recurring billing day'), findsOneWidget);
     expect(find.text('Selected billing day: 5'), findsOneWidget);
     expect(find.text('Include Interest'), findsNothing);
@@ -703,6 +770,8 @@ void main() {
             dayOfMonth: 15,
             recurring: true,
             recurringInterval: 1,
+            recurringTemplateId: 'template-internet',
+            generatedFromTemplate: true,
             dueDate: '2026-06-15',
             createdAt: '2026-06-01 10:00:00',
           ),
@@ -727,6 +796,8 @@ void main() {
             dayOfMonth: 15,
             recurring: true,
             recurringInterval: 1,
+            recurringTemplateId: 'template-internet',
+            generatedFromTemplate: true,
             dueDate: '2026-07-15',
             createdAt: '2026-06-01 10:00:00',
           ),
@@ -743,6 +814,8 @@ void main() {
             dayOfMonth: 15,
             recurring: true,
             recurringInterval: 1,
+            recurringTemplateId: 'template-internet',
+            generatedFromTemplate: true,
             dueDate: '2026-08-15',
             createdAt: '2026-06-01 10:00:00',
           ),
@@ -772,14 +845,88 @@ void main() {
     await tester.tap(find.text('End recurring'));
     await tester.pumpAndSettle();
 
-    expect(controller.bulkDeleteCalls, [
-      [1, 2],
-    ]);
+    expect(controller.endedRecurringSeries, ['template-internet']);
     final remainingIds = controller.dues
         .expand((month) => month.dues)
         .map((due) => due.id)
         .toList();
-    expect(remainingIds, [4, 3]);
+    expect(remainingIds, [1, 4, 3]);
+  });
+
+  testWidgets('all dues edits future recurring occurrences', (
+    WidgetTester tester,
+  ) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'June 2026',
+        dues: [
+          Due(
+            id: 1,
+            name: 'Internet',
+            price: 1800,
+            paid: false,
+            dayOfMonth: 15,
+            recurring: true,
+            recurringInterval: 1,
+            recurringTemplateId: 'template-internet',
+            generatedFromTemplate: true,
+            dueDate: '2026-06-15',
+            createdAt: '2026-06-01 10:00:00',
+          ),
+        ],
+      ),
+      MonthlyDue(
+        month: 'July 2026',
+        dues: [
+          Due(
+            id: 2,
+            name: 'Internet',
+            price: 1800,
+            paid: false,
+            dayOfMonth: 15,
+            recurring: true,
+            recurringInterval: 1,
+            recurringTemplateId: 'template-internet',
+            generatedFromTemplate: true,
+            dueDate: '2026-07-15',
+            createdAt: '2026-06-01 10:00:00',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: AllDuesShowcasePage()));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('Internet'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit future occurrences'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('edit_recurring_name_field')),
+      'Fiber Internet',
+    );
+    await tester.enterText(
+      find.byKey(const Key('edit_recurring_amount_field')),
+      '2000',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(controller.updatedRecurringSeries, ['template-internet']);
+    final recurringDues = controller.dues
+        .expand((month) => month.dues)
+        .where((due) => due.recurringTemplateId == 'template-internet')
+        .toList();
+    expect(recurringDues.every((due) => due.name == 'Fiber Internet'), isTrue);
+    expect(recurringDues.every((due) => due.price == 2000), isTrue);
   });
 
   testWidgets('all dues edit rejects negative amount', (

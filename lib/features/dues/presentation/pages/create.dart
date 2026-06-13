@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:myduesapp/features/dues/application/usecases/generate_recurring_occurrences.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due;
 import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
@@ -38,7 +39,6 @@ class _CreatePageState extends State<CreatePage> {
   final _interestCtrl = TextEditingController();
   final _installmentsCtrl = TextEditingController(text: '3');
   final _recurringIntervalCtrl = TextEditingController(text: '1');
-  final _occurrencesCtrl = TextEditingController(text: '12');
 
   _CreateDueMode? _createMode;
   AmountInputMode _amountMode = AmountInputMode.principal;
@@ -68,7 +68,6 @@ class _CreatePageState extends State<CreatePage> {
     _interestCtrl.dispose();
     _installmentsCtrl.dispose();
     _recurringIntervalCtrl.dispose();
-    _occurrencesCtrl.dispose();
     super.dispose();
   }
 
@@ -99,8 +98,6 @@ class _CreatePageState extends State<CreatePage> {
 
   int _recurringInterval() =>
       int.tryParse(_recurringIntervalCtrl.text.trim()) ?? 0;
-
-  int _occurrenceCount() => int.tryParse(_occurrencesCtrl.text.trim()) ?? 0;
 
   List<int> _selectedBillingDaysList() {
     final selected = _selectedBillingDays.toList()..sort();
@@ -446,7 +443,6 @@ class _CreatePageState extends State<CreatePage> {
         inputAmount: _amountValue(),
         billingDay: selectedBillingDay,
         recurringInterval: _recurringInterval(),
-        occurrenceCount: _occurrenceCount(),
         startDate: _startDate,
       );
 
@@ -468,7 +464,6 @@ class _CreatePageState extends State<CreatePage> {
     _interestCtrl.clear();
     _installmentsCtrl.text = '3';
     _recurringIntervalCtrl.text = '1';
-    _occurrencesCtrl.text = '12';
     setState(() {
       _createMode = null;
       _amountMode = AmountInputMode.principal;
@@ -750,30 +745,18 @@ class _CreatePageState extends State<CreatePage> {
                                 return null;
                               },
                             ),
-                            second: TextFormField(
-                              key: const Key('occurrencesField'),
-                              controller: _occurrencesCtrl,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: false,
+                            second: AppSurface(
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.event_repeat_rounded),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'MyDues will keep the next ${GenerateRecurringOccurrences.materializedUnpaidOccurrenceCount} unpaid occurrences scheduled automatically.',
+                                    ),
                                   ),
-                              decoration: const InputDecoration(
-                                labelText: 'Occurrences',
-                                hintText: 'e.g., 12',
-                                prefixIcon: Icon(
-                                  Icons.format_list_numbered_rounded,
-                                ),
+                                ],
                               ),
-                              validator: (v) {
-                                final n = int.tryParse((v ?? '').trim());
-                                if (n == null || n < 1) {
-                                  return 'Must be at least 1';
-                                }
-                                if (n > 120) {
-                                  return 'Too many occurrences';
-                                }
-                                return null;
-                              },
                             ),
                           ),
                           const SizedBox(height: 12),

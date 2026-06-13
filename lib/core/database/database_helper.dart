@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -33,6 +33,8 @@ class DatabaseHelper {
         amount REAL,
         recurring INTEGER DEFAULT 0,
         recurring_interval INTEGER DEFAULT 1,
+        recurring_template_id TEXT,
+        generated_from_template INTEGER DEFAULT 0,
         day_of_month INTEGER,
         loan_id TEXT,
         installment_index INTEGER,
@@ -51,6 +53,26 @@ class DatabaseHelper {
         value TEXT
       );
     ''');
+
+    await db.execute('''
+      CREATE TABLE recurring_templates(
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        amount REAL,
+        billing_day INTEGER,
+        interval_months INTEGER,
+        start_date TEXT,
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX idx_dues_recurring_template_date
+      ON dues(recurring_template_id, due_date)
+      WHERE recurring_template_id IS NOT NULL;
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -64,6 +86,33 @@ class DatabaseHelper {
           key TEXT PRIMARY KEY,
           value TEXT
         );
+      ''');
+    }
+
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE dues ADD COLUMN recurring_template_id TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE dues ADD COLUMN generated_from_template INTEGER DEFAULT 0',
+      );
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS recurring_templates(
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          amount REAL,
+          billing_day INTEGER,
+          interval_months INTEGER,
+          start_date TEXT,
+          active INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+      ''');
+      await db.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_dues_recurring_template_date
+        ON dues(recurring_template_id, due_date)
+        WHERE recurring_template_id IS NOT NULL;
       ''');
     }
   }

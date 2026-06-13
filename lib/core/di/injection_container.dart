@@ -11,6 +11,8 @@ import 'package:myduesapp/features/dues/infrastructure/repositories/settings_rep
 import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/end_recurring_series.dart';
+import 'package:myduesapp/features/dues/application/usecases/generate_recurring_occurrences.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
@@ -29,7 +31,9 @@ import 'package:myduesapp/features/dues/application/usecases/set_reminders_enabl
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/update_recurring_series.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
@@ -61,6 +65,9 @@ Future<void> init() async {
 
   sl.registerLazySingleton<GetAllDues>(() => GetAllDues(repository: sl()));
   sl.registerLazySingleton<FilterDues>(() => FilterDues());
+  sl.registerLazySingleton<GenerateRecurringOccurrences>(
+    () => GenerateRecurringOccurrences(),
+  );
   sl.registerLazySingleton<GetPaymentDates>(
     () => GetPaymentDates(repository: sl()),
   );
@@ -106,6 +113,18 @@ Future<void> init() async {
   sl.registerLazySingleton<SetDuePaid>(() => SetDuePaid(repository: sl()));
   sl.registerLazySingleton<UpdateDue>(() => UpdateDue(repository: sl()));
   sl.registerLazySingleton<DeleteDue>(() => DeleteDue(repository: sl()));
+  sl.registerLazySingleton<UpdateRecurringSeries>(
+    () => UpdateRecurringSeries(repository: sl()),
+  );
+  sl.registerLazySingleton<EndRecurringSeries>(
+    () => EndRecurringSeries(repository: sl()),
+  );
+  sl.registerLazySingleton<SyncRecurringTemplates>(
+    () => SyncRecurringTemplates(
+      repository: sl(),
+      generateRecurringOccurrences: sl(),
+    ),
+  );
   sl.registerLazySingleton<SyncDueReminders>(
     () => SyncDueReminders(
       dueRepository: sl(),
@@ -117,7 +136,13 @@ Future<void> init() async {
     () => ResetAllData(dueRepository: sl(), settingsRepository: sl()),
   );
 
-  sl.registerFactory(() => DashboardController(getDashboardSummary: sl()));
+  sl.registerFactory(
+    () => DashboardController(
+      getDashboardSummary: sl(),
+      syncRecurringTemplates: sl(),
+      syncDueReminders: sl(),
+    ),
+  );
   sl.registerFactory(
     () => DueController(
       getAllDues: sl(),
@@ -127,6 +152,9 @@ Future<void> init() async {
       setDuePaid: sl(),
       updateDue: sl(),
       deleteDue: sl(),
+      updateRecurringSeries: sl(),
+      endRecurringSeries: sl(),
+      syncRecurringTemplates: sl(),
       syncDueReminders: sl(),
     ),
   );
@@ -135,6 +163,7 @@ Future<void> init() async {
       getPaymentDates: sl(),
       createSplitDue: sl(),
       createRecurringDue: sl(),
+      syncRecurringTemplates: sl(),
       syncDueReminders: sl(),
       getDefaultBillingPeriodMode: sl(),
     ),

@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/end_recurring_series.dart';
 import 'package:myduesapp/features/dues/application/usecases/filter_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/update_recurring_series.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 
@@ -18,6 +21,9 @@ class DueController extends ChangeNotifier {
   final SetDuePaid setDuePaid;
   final UpdateDue updateDue;
   final DeleteDue deleteDue;
+  final UpdateRecurringSeries updateRecurringSeries;
+  final EndRecurringSeries endRecurringSeries;
+  final SyncRecurringTemplates syncRecurringTemplates;
   final SyncDueReminders syncDueReminders;
 
   DueController({
@@ -28,6 +34,9 @@ class DueController extends ChangeNotifier {
     required this.setDuePaid,
     required this.updateDue,
     required this.deleteDue,
+    required this.updateRecurringSeries,
+    required this.endRecurringSeries,
+    required this.syncRecurringTemplates,
     required this.syncDueReminders,
   });
 
@@ -65,6 +74,10 @@ class DueController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final changed = await syncRecurringTemplates.call();
+      if (changed) {
+        await syncDueReminders.call();
+      }
       _dues = await getAllDues.call();
       if (!_loadedSavedFilterState) {
         _filterState = await getDueFilterState.call();
@@ -106,22 +119,9 @@ class DueController extends ChangeNotifier {
   }
 
   Future<void> togglePaid({required int dueId, required bool paid}) async {
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
+    await _runMutation(() async {
       await setDuePaid.call(dueId, paid);
-      _setPaidLocally(dueId, paid);
-      await syncDueReminders.call();
-    } catch (e) {
-      _errorMessage = e.toString();
-      if (kDebugMode) {
-        // ignore: avoid_print
-        print('Due toggle failed: $e');
-      }
-    } finally {
-      notifyListeners();
-    }
+    });
   }
 
   Future<void> setDueItemsPaid(List<int> dueIds, bool paid) async {
@@ -134,21 +134,18 @@ class DueController extends ChangeNotifier {
       for (final id in ids) {
         await setDuePaid.call(id, paid);
       }
-      _dues = await getAllDues.call();
     });
   }
 
   Future<void> updateDueItem(DueEntity due) async {
     await _runMutation(() async {
       await updateDue.call(due);
-      _dues = await getAllDues.call();
     });
   }
 
   Future<void> deleteDueItem(int dueId) async {
     await _runMutation(() async {
       await deleteDue.call(dueId);
-      _dues = await getAllDues.call();
     });
   }
 
@@ -162,7 +159,30 @@ class DueController extends ChangeNotifier {
       for (final id in ids) {
         await deleteDue.call(id);
       }
-      _dues = await getAllDues.call();
+    });
+  }
+
+  Future<void> updateRecurringSeriesItem({
+    required String templateId,
+    required String name,
+    required double amount,
+    required int billingDay,
+    required int intervalMonths,
+  }) async {
+    await _runMutation(() async {
+      await updateRecurringSeries.call(
+        templateId: templateId,
+        name: name,
+        amount: amount,
+        billingDay: billingDay,
+        intervalMonths: intervalMonths,
+      );
+    });
+  }
+
+  Future<void> endRecurringSeriesItem(String templateId) async {
+    await _runMutation(() async {
+      await endRecurringSeries.call(templateId);
     });
   }
 
@@ -173,6 +193,8 @@ class DueController extends ChangeNotifier {
 
     try {
       await action();
+      await syncRecurringTemplates.call();
+      _dues = await getAllDues.call();
       await syncDueReminders.call();
       await _syncNormalizedFilterState();
     } catch (e) {
@@ -219,16 +241,5 @@ class DueController extends ChangeNotifier {
     }
 
     return state.copyWith(month: null);
-  }
-
-  void _setPaidLocally(int dueId, bool paid) {
-    for (final month in _dues) {
-      for (final due in month.dues) {
-        if (due.id == dueId) {
-          due.paid = paid;
-          return;
-        }
-      }
-    }
   }
 }

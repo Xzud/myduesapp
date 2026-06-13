@@ -144,6 +144,11 @@ class GetDashboardSummary {
   }
 
   String _groupKey(DueEntity due, int index) {
+    final recurringTemplateId = due.recurringTemplateId?.trim();
+    if (recurringTemplateId != null && recurringTemplateId.isNotEmpty) {
+      return 'recurring:$recurringTemplateId';
+    }
+
     final groupId = due.loanId?.trim();
     if (groupId != null && groupId.isNotEmpty) {
       return 'group:$groupId';

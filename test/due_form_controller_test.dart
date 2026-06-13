@@ -4,6 +4,7 @@ import 'package:myduesapp/features/dues/application/usecases/create_recurring_du
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_recurring_templates.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 
@@ -15,23 +16,32 @@ class MockGetPaymentDates extends Mock implements GetPaymentDates {}
 
 class MockSyncDueReminders extends Mock implements SyncDueReminders {}
 
+class MockSyncRecurringTemplates extends Mock
+    implements SyncRecurringTemplates {}
+
 void main() {
   late DueFormController controller;
   late MockCreateSplitDue mockCreateSplitDue;
   late MockCreateRecurringDue mockCreateRecurringDue;
   late MockGetPaymentDates mockGetPaymentDates;
   late MockSyncDueReminders mockSyncDueReminders;
+  late MockSyncRecurringTemplates mockSyncRecurringTemplates;
 
   setUp(() {
     mockCreateSplitDue = MockCreateSplitDue();
     mockCreateRecurringDue = MockCreateRecurringDue();
     mockGetPaymentDates = MockGetPaymentDates();
     mockSyncDueReminders = MockSyncDueReminders();
+    mockSyncRecurringTemplates = MockSyncRecurringTemplates();
     when(() => mockSyncDueReminders.call()).thenAnswer((_) async {});
+    when(
+      () => mockSyncRecurringTemplates.call(),
+    ).thenAnswer((_) async => false);
     controller = DueFormController(
       getPaymentDates: mockGetPaymentDates,
       createSplitDue: mockCreateSplitDue,
       createRecurringDue: mockCreateRecurringDue,
+      syncRecurringTemplates: mockSyncRecurringTemplates,
       syncDueReminders: mockSyncDueReminders,
     );
   });
@@ -179,7 +189,6 @@ void main() {
         amount: any(named: 'amount'),
         billingDay: any(named: 'billingDay'),
         recurringInterval: any(named: 'recurringInterval'),
-        occurrenceCount: any(named: 'occurrenceCount'),
         startDate: any(named: 'startDate'),
       ),
     ).thenAnswer((_) async {});
@@ -190,12 +199,12 @@ void main() {
       inputAmount: 1800,
       billingDay: 15,
       recurringInterval: 1,
-      occurrenceCount: 12,
       startDate: startDate,
     );
 
     expect(controller.errorMessage, isNull);
     expect(controller.isLoading, false);
+    verify(() => mockSyncRecurringTemplates.call()).called(1);
     verify(() => mockSyncDueReminders.call()).called(1);
     verify(
       () => mockCreateRecurringDue(
@@ -203,7 +212,6 @@ void main() {
         amount: 1800,
         billingDay: 15,
         recurringInterval: 1,
-        occurrenceCount: 12,
         startDate: startDate,
       ),
     ).called(1);
