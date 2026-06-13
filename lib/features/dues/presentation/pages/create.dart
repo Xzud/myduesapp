@@ -40,7 +40,7 @@ class _CreatePageState extends State<CreatePage> {
   final _recurringIntervalCtrl = TextEditingController(text: '1');
   final _occurrencesCtrl = TextEditingController(text: '12');
 
-  _CreateDueMode _createMode = _CreateDueMode.loanSplit;
+  _CreateDueMode? _createMode;
   AmountInputMode _amountMode = AmountInputMode.principal;
   bool _includeInterest = false;
   InterestMode _interestMode = InterestMode.percentage;
@@ -196,6 +196,23 @@ class _CreatePageState extends State<CreatePage> {
         }
       }
     });
+  }
+
+  void _clearCreateMode() {
+    setState(() {
+      _createMode = null;
+    });
+  }
+
+  String _createModeTitle() {
+    switch (_createMode) {
+      case _CreateDueMode.loanSplit:
+        return 'Create loan split';
+      case _CreateDueMode.recurringBill:
+        return 'Create recurring bill';
+      case null:
+        return 'Create due';
+    }
   }
 
   String _interestLabel() {
@@ -355,6 +372,13 @@ class _CreatePageState extends State<CreatePage> {
   }
 
   Future<void> _submit() async {
+    if (_createMode == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Choose a due type first.')));
+      return;
+    }
+
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
 
@@ -446,7 +470,7 @@ class _CreatePageState extends State<CreatePage> {
     _recurringIntervalCtrl.text = '1';
     _occurrencesCtrl.text = '12';
     setState(() {
-      _createMode = _CreateDueMode.loanSplit;
+      _createMode = null;
       _amountMode = AmountInputMode.principal;
       _includeInterest = false;
       _interestMode = InterestMode.percentage;
@@ -505,9 +529,7 @@ class _CreatePageState extends State<CreatePage> {
                   children: [
                     Expanded(
                       child: Text(
-                        _createMode == _CreateDueMode.loanSplit
-                            ? 'Create loan split'
-                            : 'Create recurring bill',
+                        _createModeTitle(),
                         style: theme.textTheme.headlineSmall?.copyWith(
                           color: theme.colorScheme.onPrimaryContainer,
                           fontWeight: FontWeight.w800,
@@ -527,378 +549,370 @@ class _CreatePageState extends State<CreatePage> {
                 ),
               ),
               const SizedBox(height: 12),
-              SegmentedButton<_CreateDueMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: _CreateDueMode.loanSplit,
-                    label: Text('Loan split'),
-                    icon: Icon(Icons.splitscreen_rounded),
-                  ),
-                  ButtonSegment(
-                    value: _CreateDueMode.recurringBill,
-                    label: Text('Recurring bill'),
-                    icon: Icon(Icons.repeat_rounded),
-                  ),
-                ],
-                selected: {_createMode},
-                showSelectedIcon: false,
-                onSelectionChanged: (selection) {
-                  if (selection.isEmpty) return;
-                  _changeCreateMode(selection.first);
-                },
-              ),
-              const SizedBox(height: 12),
-              AppSurface(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        key: const Key('titleField'),
-                        controller: _titleCtrl,
-                        textInputAction: TextInputAction.next,
-                        decoration: InputDecoration(
-                          labelText: 'Title',
-                          hintText: _createMode == _CreateDueMode.loanSplit
-                              ? 'e.g., Motorcycle loan'
-                              : 'e.g., Internet bill',
-                          prefixIcon: const Icon(Icons.title_rounded),
+              if (_createMode == null)
+                _DueTypeChooser(onSelected: _changeCreateMode)
+              else ...[
+                _SelectedDueTypeHeader(
+                  mode: _createMode!,
+                  onChangeType: _clearCreateMode,
+                ),
+                const SizedBox(height: 12),
+                AppSurface(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          key: const Key('titleField'),
+                          controller: _titleCtrl,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Title',
+                            hintText: _createMode == _CreateDueMode.loanSplit
+                                ? 'e.g., Motorcycle loan'
+                                : 'e.g., Internet bill',
+                            prefixIcon: const Icon(Icons.title_rounded),
+                          ),
+                          validator: (v) {
+                            final s = (v ?? '').trim();
+                            if (s.isEmpty) return 'Title is required';
+                            return null;
+                          },
                         ),
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Title is required';
-                          return null;
-                        },
-                      ),
-                      if (_createMode == _CreateDueMode.loanSplit) ...[
+                        if (_createMode == _CreateDueMode.loanSplit) ...[
+                          const SizedBox(height: 12),
+                          SegmentedButton<AmountInputMode>(
+                            segments: const [
+                              ButtonSegment(
+                                value: AmountInputMode.principal,
+                                label: Text('Principal'),
+                              ),
+                              ButtonSegment(
+                                value: AmountInputMode.monthly,
+                                label: Text('Monthly'),
+                              ),
+                            ],
+                            selected: {_amountMode},
+                            showSelectedIcon: false,
+                            onSelectionChanged: (selection) {
+                              if (selection.isEmpty) return;
+                              setState(() {
+                                _amountMode = selection.first;
+                              });
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 12),
-                        SegmentedButton<AmountInputMode>(
-                          segments: const [
-                            ButtonSegment(
-                              value: AmountInputMode.principal,
-                              label: Text('Principal'),
+                        TextFormField(
+                          key: const Key('amountField'),
+                          controller: _amountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: _amountLabel(),
+                            hintText: _amountHint(),
+                            helperText: _amountHelperText(),
+                            prefixIcon: Icon(_amountIcon()),
+                          ),
+                          validator: (v) {
+                            final amt = double.tryParse((v ?? '').trim());
+                            if (amt == null || amt <= 0) {
+                              return 'Enter a valid amount';
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_createMode == _CreateDueMode.loanSplit) ...[
+                          const SizedBox(height: 12),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Include Interest'),
+                            value: _includeInterest,
+                            onChanged: (value) {
+                              setState(() {
+                                _includeInterest = value;
+                              });
+                            },
+                          ),
+                          if (_includeInterest) ...[
+                            const SizedBox(height: 12),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SegmentedButton<InterestMode>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: InterestMode.percentage,
+                                    label: Text('Percentage'),
+                                  ),
+                                  ButtonSegment(
+                                    value: InterestMode.monthlyFixedAmount,
+                                    label: Text('Monthly fixed'),
+                                  ),
+                                  ButtonSegment(
+                                    value:
+                                        InterestMode.totalAmountDividedPerMonth,
+                                    label: Text('Total interest'),
+                                  ),
+                                ],
+                                selected: {_interestMode},
+                                showSelectedIcon: false,
+                                onSelectionChanged: (selection) {
+                                  if (selection.isEmpty) return;
+                                  setState(() {
+                                    _interestMode = selection.first;
+                                  });
+                                },
+                              ),
                             ),
-                            ButtonSegment(
-                              value: AmountInputMode.monthly,
-                              label: Text('Monthly'),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              key: const Key('interestField'),
+                              controller: _interestCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              textInputAction: TextInputAction.next,
+                              decoration: InputDecoration(
+                                labelText: _interestLabel(),
+                                hintText: _interestHint(),
+                                helperText: _interestHelperText(),
+                                prefixIcon: Icon(_interestIcon()),
+                              ),
+                              validator: (v) {
+                                final value = double.tryParse((v ?? '').trim());
+                                if (!_includeInterest) return null;
+                                if (value == null || value <= 0) {
+                                  return 'Enter a valid interest value';
+                                }
+                                return null;
+                              },
                             ),
                           ],
-                          selected: {_amountMode},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (selection) {
-                            if (selection.isEmpty) return;
-                            setState(() {
-                              _amountMode = selection.first;
-                            });
-                          },
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        key: const Key('amountField'),
-                        controller: _amountCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        textInputAction: TextInputAction.next,
-                        decoration: InputDecoration(
-                          labelText: _amountLabel(),
-                          hintText: _amountHint(),
-                          helperText: _amountHelperText(),
-                          prefixIcon: Icon(_amountIcon()),
-                        ),
-                        validator: (v) {
-                          final amt = double.tryParse((v ?? '').trim());
-                          if (amt == null || amt <= 0) {
-                            return 'Enter a valid amount';
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_createMode == _CreateDueMode.loanSplit) ...[
+                        ],
                         const SizedBox(height: 12),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Include Interest'),
-                          value: _includeInterest,
-                          onChanged: (value) {
-                            setState(() {
-                              _includeInterest = value;
-                            });
-                          },
-                        ),
-                        if (_includeInterest) ...[
-                          const SizedBox(height: 12),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: SegmentedButton<InterestMode>(
-                              segments: const [
-                                ButtonSegment(
-                                  value: InterestMode.percentage,
-                                  label: Text('Percentage'),
+                        if (_createMode == _CreateDueMode.loanSplit)
+                          _TwoColumnFields(
+                            first: TextFormField(
+                              key: const Key('installmentsField'),
+                              controller: _installmentsCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: false,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Installments',
+                                hintText: 'e.g., 3',
+                                prefixIcon: Icon(
+                                  Icons.format_list_numbered_rounded,
                                 ),
-                                ButtonSegment(
-                                  value: InterestMode.monthlyFixedAmount,
-                                  label: Text('Monthly fixed'),
+                              ),
+                              validator: (v) {
+                                final n = int.tryParse((v ?? '').trim());
+                                if (n == null || n < 1) {
+                                  return 'Must be at least 1';
+                                }
+                                if (n > 120) {
+                                  return 'Too many installments';
+                                }
+                                return null;
+                              },
+                            ),
+                            second: _StartDateField(
+                              startDate: _startDate,
+                              onTap: _pickStartDate,
+                            ),
+                          )
+                        else ...[
+                          _TwoColumnFields(
+                            first: TextFormField(
+                              key: const Key('recurringIntervalField'),
+                              controller: _recurringIntervalCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: false,
+                                  ),
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: 'Interval (months)',
+                                hintText: 'e.g., 1',
+                                prefixIcon: Icon(Icons.repeat_rounded),
+                              ),
+                              validator: (v) {
+                                final n = int.tryParse((v ?? '').trim());
+                                if (n == null || n < 1) {
+                                  return 'Must be at least 1';
+                                }
+                                if (n > 120) return 'Too large';
+                                return null;
+                              },
+                            ),
+                            second: TextFormField(
+                              key: const Key('occurrencesField'),
+                              controller: _occurrencesCtrl,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: false,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Occurrences',
+                                hintText: 'e.g., 12',
+                                prefixIcon: Icon(
+                                  Icons.format_list_numbered_rounded,
                                 ),
-                                ButtonSegment(
-                                  value:
-                                      InterestMode.totalAmountDividedPerMonth,
-                                  label: Text('Total interest'),
-                                ),
-                              ],
-                              selected: {_interestMode},
-                              showSelectedIcon: false,
-                              onSelectionChanged: (selection) {
-                                if (selection.isEmpty) return;
-                                setState(() {
-                                  _interestMode = selection.first;
-                                });
+                              ),
+                              validator: (v) {
+                                final n = int.tryParse((v ?? '').trim());
+                                if (n == null || n < 1) {
+                                  return 'Must be at least 1';
+                                }
+                                if (n > 120) {
+                                  return 'Too many occurrences';
+                                }
+                                return null;
                               },
                             ),
                           ),
                           const SizedBox(height: 12),
-                          TextFormField(
-                            key: const Key('interestField'),
-                            controller: _interestCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            textInputAction: TextInputAction.next,
-                            decoration: InputDecoration(
-                              labelText: _interestLabel(),
-                              hintText: _interestHint(),
-                              helperText: _interestHelperText(),
-                              prefixIcon: Icon(_interestIcon()),
-                            ),
-                            validator: (v) {
-                              final value = double.tryParse((v ?? '').trim());
-                              if (!_includeInterest) return null;
-                              if (value == null || value <= 0) {
-                                return 'Enter a valid interest value';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ],
-                      const SizedBox(height: 12),
-                      if (_createMode == _CreateDueMode.loanSplit)
-                        _TwoColumnFields(
-                          first: TextFormField(
-                            key: const Key('installmentsField'),
-                            controller: _installmentsCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: false,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Installments',
-                              hintText: 'e.g., 3',
-                              prefixIcon: Icon(
-                                Icons.format_list_numbered_rounded,
-                              ),
-                            ),
-                            validator: (v) {
-                              final n = int.tryParse((v ?? '').trim());
-                              if (n == null || n < 1) {
-                                return 'Must be at least 1';
-                              }
-                              if (n > 120) {
-                                return 'Too many installments';
-                              }
-                              return null;
-                            },
-                          ),
-                          second: _StartDateField(
+                          _StartDateField(
                             startDate: _startDate,
                             onTap: _pickStartDate,
                           ),
-                        )
-                      else ...[
-                        _TwoColumnFields(
-                          first: TextFormField(
-                            key: const Key('recurringIntervalField'),
-                            controller: _recurringIntervalCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: false,
+                        ],
+                        if (_loadingBillingDays) ...[
+                          const SizedBox(height: 12),
+                          const LinearProgressIndicator(minHeight: 3),
+                        ],
+                        if (!_loadingBillingDays && _billingDays.isEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Set at least one billing day in Settings first.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.error,
                             ),
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              labelText: 'Interval (months)',
-                              hintText: 'e.g., 1',
-                              prefixIcon: Icon(Icons.repeat_rounded),
-                            ),
-                            validator: (v) {
-                              final n = int.tryParse((v ?? '').trim());
-                              if (n == null || n < 1) {
-                                return 'Must be at least 1';
-                              }
-                              if (n > 120) return 'Too large';
-                              return null;
-                            },
                           ),
-                          second: TextFormField(
-                            key: const Key('occurrencesField'),
-                            controller: _occurrencesCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: false,
+                        ],
+                        if (_createMode == _CreateDueMode.loanSplit) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            'Billing period selection',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
                             ),
-                            decoration: const InputDecoration(
-                              labelText: 'Occurrences',
-                              hintText: 'e.g., 12',
-                              prefixIcon: Icon(
-                                Icons.format_list_numbered_rounded,
+                          ),
+                          const SizedBox(height: 8),
+                          SegmentedButton<BillingPeriodMode>(
+                            segments: const [
+                              ButtonSegment(
+                                value: BillingPeriodMode.single,
+                                label: Text('Single'),
+                                icon: Icon(Icons.radio_button_checked_rounded),
                               ),
-                            ),
-                            validator: (v) {
-                              final n = int.tryParse((v ?? '').trim());
-                              if (n == null || n < 1) {
-                                return 'Must be at least 1';
-                              }
-                              if (n > 120) {
-                                return 'Too many occurrences';
-                              }
-                              return null;
+                              ButtonSegment(
+                                value: BillingPeriodMode.multiple,
+                                label: Text('Multiple'),
+                                icon: Icon(Icons.checklist_rounded),
+                              ),
+                            ],
+                            selected: {_billingPeriodSelectionMode},
+                            showSelectedIcon: false,
+                            onSelectionChanged: (selection) {
+                              if (selection.isEmpty) return;
+                              _changeBillingPeriodMode(selection.first);
                             },
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        _StartDateField(
-                          startDate: _startDate,
-                          onTap: _pickStartDate,
-                        ),
-                      ],
-                      if (_loadingBillingDays) ...[
-                        const SizedBox(height: 12),
-                        const LinearProgressIndicator(minHeight: 3),
-                      ],
-                      if (!_loadingBillingDays && _billingDays.isEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'Set at least one billing day in Settings first.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.error,
-                          ),
-                        ),
-                      ],
-                      if (_createMode == _CreateDueMode.loanSplit) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Billing period selection',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SegmentedButton<BillingPeriodMode>(
-                          segments: const [
-                            ButtonSegment(
-                              value: BillingPeriodMode.single,
-                              label: Text('Single'),
-                              icon: Icon(Icons.radio_button_checked_rounded),
+                          const SizedBox(height: 8),
+                          Text(
+                            _billingPeriodDescription(),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
-                            ButtonSegment(
-                              value: BillingPeriodMode.multiple,
-                              label: Text('Multiple'),
-                              icon: Icon(Icons.checklist_rounded),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!_loadingBillingDays && _billingDays.isNotEmpty)
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final d in _billingDays)
+                                  _buildBillingDayChip(d),
+                              ],
                             ),
-                          ],
-                          selected: {_billingPeriodSelectionMode},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (selection) {
-                            if (selection.isEmpty) return;
-                            _changeBillingPeriodMode(selection.first);
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _billingPeriodDescription(),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          const SizedBox(height: 8),
+                          Text(
+                            _billingPeriodSummary(),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            'Recurring billing day',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Choose the day to use for each generated due.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!_loadingBillingDays && _billingDays.isNotEmpty)
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final d in _billingDays)
+                                  ChoiceChip(
+                                    key: Key('recurringBillingDayChip_$d'),
+                                    label: Text(d.toString()),
+                                    selected: _selectedBillingDay() == d,
+                                    onSelected: (selected) {
+                                      if (selected) {
+                                        _selectSingleBillingDay(d);
+                                      }
+                                    },
+                                  ),
+                              ],
+                            ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _selectedBillingDay() == null
+                                ? 'Select a billing day.'
+                                : 'Selected billing day: ${_selectedBillingDay()}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: controller.isLoading ? null : _submit,
+                            icon: const Icon(Icons.add_circle_outline_rounded),
+                            label: const Text('Create'),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        if (!_loadingBillingDays && _billingDays.isNotEmpty)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final d in _billingDays)
-                                _buildBillingDayChip(d),
-                            ],
+                        if (controller.errorMessage != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            controller.errorMessage!,
+                            style: TextStyle(color: theme.colorScheme.error),
                           ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _billingPeriodSummary(),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Recurring billing day',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Choose the day to use for each generated due.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (!_loadingBillingDays && _billingDays.isNotEmpty)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final d in _billingDays)
-                                ChoiceChip(
-                                  key: Key('recurringBillingDayChip_$d'),
-                                  label: Text(d.toString()),
-                                  selected: _selectedBillingDay() == d,
-                                  onSelected: (selected) {
-                                    if (selected) {
-                                      _selectSingleBillingDay(d);
-                                    }
-                                  },
-                                ),
-                            ],
-                          ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _selectedBillingDay() == null
-                              ? 'Select a billing day.'
-                              : 'Selected billing day: ${_selectedBillingDay()}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                        ],
                       ],
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: controller.isLoading ? null : _submit,
-                          icon: const Icon(Icons.add_circle_outline_rounded),
-                          label: const Text('Create'),
-                        ),
-                      ),
-                      if (controller.errorMessage != null) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          controller.errorMessage!,
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
+              ],
               const SizedBox(height: 18),
               AppSectionHeader(
                 title: 'Preview',
@@ -956,6 +970,161 @@ class _CreatePageState extends State<CreatePage> {
     }
 
     return 'Due ${formatYmd(dt)}';
+  }
+}
+
+class _DueTypeChooser extends StatelessWidget {
+  final ValueChanged<_CreateDueMode> onSelected;
+
+  const _DueTypeChooser({required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final options = [
+          _DueTypeOption(
+            key: const Key('loanSplitTypeOption'),
+            icon: Icons.splitscreen_rounded,
+            title: 'Loan split',
+            description: 'Installments across one or more billing periods',
+            onTap: () => onSelected(_CreateDueMode.loanSplit),
+          ),
+          _DueTypeOption(
+            key: const Key('recurringBillTypeOption'),
+            icon: Icons.repeat_rounded,
+            title: 'Recurring bill',
+            description: 'Repeating payments on one billing day',
+            onTap: () => onSelected(_CreateDueMode.recurringBill),
+          ),
+        ];
+
+        if (constraints.maxWidth < 640) {
+          return Column(
+            children: [options.first, const SizedBox(height: 12), options.last],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: options.first),
+            const SizedBox(width: 12),
+            Expanded(child: options.last),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DueTypeOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  const _DueTypeOption({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Material(
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedDueTypeHeader extends StatelessWidget {
+  final _CreateDueMode mode;
+  final VoidCallback onChangeType;
+
+  const _SelectedDueTypeHeader({
+    required this.mode,
+    required this.onChangeType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isLoanSplit = mode == _CreateDueMode.loanSplit;
+
+    return AppSurface(
+      child: Row(
+        children: [
+          Icon(
+            isLoanSplit ? Icons.splitscreen_rounded : Icons.repeat_rounded,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              isLoanSplit ? 'Loan split' : 'Recurring bill',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            key: const Key('changeDueTypeButton'),
+            onPressed: onChangeType,
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const Text('Change type'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

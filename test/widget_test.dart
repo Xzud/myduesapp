@@ -289,9 +289,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Create'), findsWidgets);
+    expect(find.text('Create due'), findsOneWidget);
+    expect(find.byKey(const Key('loanSplitTypeOption')), findsOneWidget);
+    expect(find.byKey(const Key('recurringBillTypeOption')), findsOneWidget);
+    expect(find.byKey(const Key('titleField')), findsNothing);
+    expect(find.byKey(const Key('amountField')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('loanSplitTypeOption')));
+    await tester.pumpAndSettle();
+
     expect(find.text('Create loan split'), findsOneWidget);
     expect(find.text('Loan split'), findsOneWidget);
-    expect(find.text('Recurring bill'), findsOneWidget);
+    expect(find.byKey(const Key('changeDueTypeButton')), findsOneWidget);
     expect(find.text('Principal'), findsOneWidget);
     expect(find.text('Monthly'), findsOneWidget);
 
@@ -349,6 +358,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Total interest amount (PHP)'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('changeDueTypeButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('changeDueTypeButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create due'), findsOneWidget);
+    expect(find.byKey(const Key('loanSplitTypeOption')), findsOneWidget);
+    expect(find.byKey(const Key('recurringBillTypeOption')), findsOneWidget);
+    expect(find.byKey(const Key('titleField')), findsNothing);
   });
 
   testWidgets('create page renders recurring bill form', (
@@ -361,10 +380,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.tap(find.text('Recurring bill'));
+    await tester.tap(find.byKey(const Key('recurringBillTypeOption')));
     await tester.pumpAndSettle();
 
     expect(find.text('Create recurring bill'), findsOneWidget);
+    expect(find.byKey(const Key('changeDueTypeButton')), findsOneWidget);
     expect(find.text('Amount (PHP)'), findsOneWidget);
     expect(find.byKey(const Key('recurringIntervalField')), findsOneWidget);
     expect(find.byKey(const Key('occurrencesField')), findsOneWidget);
