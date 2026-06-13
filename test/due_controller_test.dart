@@ -171,18 +171,27 @@ void main() {
     ).called(1);
   });
 
-  test('should toggle paid without reloading dues', () async {
+  test('should toggle paid and reflect persisted state after reload', () async {
+    var persistedPaid = false;
     when(() => mockGetAllDues()).thenAnswer((_) async {
       return [
         MonthlyDue(
           month: 'May 2026',
           dues: [
-            Due(id: 1, name: 'Loan A', price: 100, paid: false, dayOfMonth: 5),
+            Due(
+              id: 1,
+              name: 'Loan A',
+              price: 100,
+              paid: persistedPaid,
+              dayOfMonth: 5,
+            ),
           ],
         ),
       ];
     });
-    when(() => mockSetDuePaid.call(1, true)).thenAnswer((_) async {});
+    when(() => mockSetDuePaid.call(1, true)).thenAnswer((_) async {
+      persistedPaid = true;
+    });
 
     await controller.fetchDues();
     await controller.togglePaid(dueId: 1, paid: true);
