@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due, MonthlyDue;
+import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/pages/due_detail.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/due_filter_bar.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
@@ -19,12 +21,19 @@ class DuesPage extends StatefulWidget {
 
 class _DuesPageState extends State<DuesPage> {
   late final DueController controller;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     controller = sl<DueController>();
     controller.fetchDues();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Map<String, List<Due>> _groupByLoan(List<Due> dues) {
@@ -142,11 +151,13 @@ class _DuesPageState extends State<DuesPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
+                      key: const Key('edit_due_name_field'),
                       controller: nameCtrl,
                       decoration: const InputDecoration(labelText: 'Name'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
+                      key: const Key('edit_due_amount_field'),
                       controller: amountCtrl,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -201,9 +212,6 @@ class _DuesPageState extends State<DuesPage> {
         );
       },
     );
-
-    nameCtrl.dispose();
-    amountCtrl.dispose();
 
     if (!mounted || updated == null) return;
     await controller.updateDueItem(updated);
@@ -289,12 +297,27 @@ class _DuesPageState extends State<DuesPage> {
   Widget _buildMonthlyList({
     required List<MonthlyDue> months,
     required String emptyMessage,
+    required bool hasActiveFilters,
+    required VoidCallback onClearFilters,
   }) {
     if (months.isEmpty) {
       return AppEmptyState(
-        icon: Icons.inbox_outlined,
-        title: emptyMessage,
-        message: 'Items will appear here as their status changes.',
+        icon: hasActiveFilters
+            ? Icons.filter_alt_off_rounded
+            : Icons.inbox_outlined,
+        title: hasActiveFilters
+            ? 'No dues match your current filters.'
+            : emptyMessage,
+        message: hasActiveFilters
+            ? 'Try adjusting the search, quick view, or filters.'
+            : 'Items will appear here as their status changes.',
+        action: hasActiveFilters
+            ? FilledButton.icon(
+                onPressed: onClearFilters,
+                icon: const Icon(Icons.filter_alt_off_rounded),
+                label: const Text('Clear filters'),
+              )
+            : null,
       );
     }
 
@@ -329,6 +352,74 @@ class _DuesPageState extends State<DuesPage> {
     );
   }
 
+  void _clearSearch() {
+    _searchCtrl.clear();
+    controller.updateSearchQuery('');
+  }
+
+  Future<void> _clearFilters() async {
+    _searchCtrl.clear();
+    await controller.clearFilters();
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateQuickView(DueQuickView value) async {
+    await controller.updateQuickView(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateStatus(DueStatusFilter value) async {
+    await controller.updateStatusFilter(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateType(DueTypeFilter value) async {
+    await controller.updateTypeFilter(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateMonth(String? value) async {
+    await controller.updateMonthFilter(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Widget _buildFilterSection({required bool compactHeight}) {
+    final filterBar = DueFilterBar(
+      scope: 'overview',
+      searchController: _searchCtrl,
+      filterState: controller.filterState,
+      availableMonths: controller.availableMonths,
+      enabled: !controller.isLoading,
+      onSearchChanged: controller.updateSearchQuery,
+      onClearSearch: _clearSearch,
+      onClearFilters: _clearFilters,
+      onQuickViewChanged: _updateQuickView,
+      onStatusChanged: _updateStatus,
+      onTypeChanged: _updateType,
+      onMonthChanged: _updateMonth,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: appWideContentMaxWidth),
+          child: compactHeight
+              ? SizedBox(
+                  height: 132,
+                  child: SingleChildScrollView(child: filterBar),
+                )
+              : filterBar,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -348,7 +439,7 @@ class _DuesPageState extends State<DuesPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (controller.errorMessage != null) {
+          if (controller.errorMessage != null && controller.dues.isEmpty) {
             return AppEmptyState(
               icon: Icons.error_outline_rounded,
               title: 'Overview unavailable',
@@ -361,8 +452,8 @@ class _DuesPageState extends State<DuesPage> {
             );
           }
 
-          final months = controller.dues;
-          if (months.isEmpty) {
+          final allMonths = controller.dues;
+          if (allMonths.isEmpty) {
             return AppEmptyState(
               icon: Icons.receipt_long_outlined,
               title: 'No dues found.',
@@ -376,48 +467,62 @@ class _DuesPageState extends State<DuesPage> {
             );
           }
 
+          final months = controller.filteredDues;
           final payableMonths = _monthsByPaidState(months, false);
           final paidMonths = _monthsByPaidState(months, true);
 
           return DefaultTabController(
             length: 2,
             child: SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: appWideContentMaxWidth,
-                        ),
-                        child: AppSurface(
-                          padding: const EdgeInsets.all(4),
-                          child: TabBar(
-                            tabs: [
-                              Tab(text: 'Payable (${payableMonths.length})'),
-                              Tab(text: 'Paid (${paidMonths.length})'),
-                            ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compactHeight = constraints.maxHeight < 700;
+
+                  return Column(
+                    children: [
+                      _buildFilterSection(compactHeight: compactHeight),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: appWideContentMaxWidth,
+                            ),
+                            child: AppSurface(
+                              padding: const EdgeInsets.all(4),
+                              child: TabBar(
+                                tabs: [
+                                  Tab(
+                                    text: 'Payable (${payableMonths.length})',
+                                  ),
+                                  Tab(text: 'Paid (${paidMonths.length})'),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildMonthlyList(
-                          months: payableMonths,
-                          emptyMessage: 'No payable dues right now.',
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildMonthlyList(
+                              months: payableMonths,
+                              emptyMessage: 'No payable dues right now.',
+                              hasActiveFilters: controller.hasActiveFilters,
+                              onClearFilters: _clearFilters,
+                            ),
+                            _buildMonthlyList(
+                              months: paidMonths,
+                              emptyMessage: 'No paid dues yet.',
+                              hasActiveFilters: controller.hasActiveFilters,
+                              onClearFilters: _clearFilters,
+                            ),
+                          ],
                         ),
-                        _buildMonthlyList(
-                          months: paidMonths,
-                          emptyMessage: 'No paid dues yet.',
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           );

@@ -1,4 +1,5 @@
 import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 
 abstract class SettingsRepository {
   Future<List<int>> getBillingDates();
@@ -9,5 +10,7 @@ abstract class SettingsRepository {
   Future<void> setRemindersEnabled(bool enabled);
   Future<int> getReminderOffsetDays();
   Future<void> setReminderOffsetDays(int days);
+  Future<DueFilterState> getDueFilterState();
+  Future<void> setDueFilterState(DueFilterState state);
   Future<void> clearAllData();
 }

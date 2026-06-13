@@ -1,4 +1,5 @@
 import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/reminder_settings.dart';
 import 'package:myduesapp/features/dues/domain/repositories/settings_repository.dart';
 import 'package:myduesapp/features/dues/infrastructure/datasources/settings_datasource.dart';
@@ -7,6 +8,7 @@ const _billingDatesKey = 'billing_dates';
 const _defaultBillingPeriodModeKey = 'default_billing_period_mode';
 const _remindersEnabledKey = 'reminders_enabled';
 const _reminderOffsetDaysKey = 'reminder_offset_days';
+const _dueFilterStateKey = 'due_filter_state';
 
 class SettingsRepositoryImpl implements SettingsRepository {
   final SettingsDatasource datasource;
@@ -83,6 +85,17 @@ class SettingsRepositoryImpl implements SettingsRepository {
       throw ArgumentError('Unsupported reminder offset: $days');
     }
     await datasource.setSettings(_reminderOffsetDaysKey, days);
+  }
+
+  @override
+  Future<DueFilterState> getDueFilterState() async {
+    final settings = await datasource.getSettings(_dueFilterStateKey);
+    return DueFilterState.fromStoredValue(settings?.getDecodedValue());
+  }
+
+  @override
+  Future<void> setDueFilterState(DueFilterState state) async {
+    await datasource.setSettings(_dueFilterStateKey, state.toStoredValue());
   }
 
   @override

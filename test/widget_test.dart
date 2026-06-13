@@ -4,15 +4,19 @@ import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/filter_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due, GetAllDues, MonthlyDue;
 import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
 import 'package:myduesapp/features/dues/domain/entities/dashboard_summary_entity.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
@@ -39,6 +43,10 @@ class _MockUpdateDue extends Mock implements UpdateDue {}
 
 class _MockDeleteDue extends Mock implements DeleteDue {}
 
+class _MockGetDueFilterState extends Mock implements GetDueFilterState {}
+
+class _MockSetDueFilterState extends Mock implements SetDueFilterState {}
+
 class _MockSyncDueReminders extends Mock implements SyncDueReminders {}
 
 class _FakeDueFormController extends DueFormController {
@@ -58,6 +66,9 @@ class _FakeDueController extends DueController {
   _FakeDueController(this._dues)
     : super(
         getAllDues: _MockGetAllDues(),
+        getDueFilterState: _MockGetDueFilterState(),
+        setDueFilterState: _MockSetDueFilterState(),
+        filterDues: FilterDues(),
         setDuePaid: _MockSetDuePaid(),
         updateDue: _MockUpdateDue(),
         deleteDue: _MockDeleteDue(),
@@ -65,14 +76,39 @@ class _FakeDueController extends DueController {
       );
 
   final List<MonthlyDue> _dues;
+  final FilterDues _filterDues = FilterDues();
   final List<int> toggleCalls = [];
   final List<List<int>> bulkPaidCalls = [];
   final List<bool> bulkPaidValues = [];
   final List<List<int>> bulkDeleteCalls = [];
   final List<DueEntity> updatedDueItems = [];
+  DueFilterState _filterState = const DueFilterState();
+  String _searchQuery = '';
 
   @override
   List<MonthlyDue> get dues => _dues;
+
+  @override
+  List<MonthlyDue> get filteredDues => _filterDues.call(
+    months: _dues,
+    filterState: _filterState,
+    searchQuery: _searchQuery,
+    referenceDate: DateTime(2026, 6, 15),
+  );
+
+  @override
+  DueFilterState get filterState => _filterState;
+
+  @override
+  String get searchQuery => _searchQuery;
+
+  @override
+  List<String> get availableMonths =>
+      _dues.map((month) => month.month).toSet().toList();
+
+  @override
+  bool get hasActiveFilters =>
+      _searchQuery.trim().isNotEmpty || !_filterState.isDefault;
 
   @override
   bool get isLoading => false;
@@ -82,6 +118,43 @@ class _FakeDueController extends DueController {
 
   @override
   Future<void> fetchDues() async {}
+
+  @override
+  void updateSearchQuery(String value) {
+    _searchQuery = value;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> updateQuickView(DueQuickView value) async {
+    _filterState = _filterState.copyWith(quickView: value);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> updateStatusFilter(DueStatusFilter value) async {
+    _filterState = _filterState.copyWith(status: value);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> updateTypeFilter(DueTypeFilter value) async {
+    _filterState = _filterState.copyWith(type: value);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> updateMonthFilter(String? value) async {
+    _filterState = _filterState.copyWith(month: value);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> clearFilters() async {
+    _filterState = const DueFilterState();
+    _searchQuery = '';
+    notifyListeners();
+  }
 
   @override
   Future<void> togglePaid({required int dueId, required bool paid}) async {
@@ -558,7 +631,7 @@ void main() {
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(1), '0');
+    await tester.enterText(find.byKey(const Key('edit_due_amount_field')), '0');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -568,6 +641,51 @@ void main() {
       findsOneWidget,
     );
     expect(controller.updatedDueItems, isEmpty);
+  });
+
+  testWidgets('overview search filters dues by name', (
+    WidgetTester tester,
+  ) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'June 2026',
+        dues: [
+          Due(
+            id: 1,
+            name: 'Internet',
+            price: 1800,
+            paid: false,
+            dayOfMonth: 15,
+            dueDate: '2026-06-15',
+          ),
+          Due(
+            id: 2,
+            name: 'Phone',
+            price: 800,
+            paid: false,
+            dayOfMonth: 16,
+            dueDate: '2026-06-16',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: DuesPage()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('overview_search_field')),
+      'phone',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Phone'), findsOneWidget);
+    expect(find.text('Internet'), findsNothing);
   });
 
   testWidgets('all dues groups recurring payments and ends unpaid schedule', (
@@ -699,7 +817,10 @@ void main() {
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(1), '-10');
+    await tester.enterText(
+      find.byKey(const Key('edit_due_amount_field')),
+      '-10',
+    );
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -709,5 +830,49 @@ void main() {
       findsOneWidget,
     );
     expect(controller.updatedDueItems, isEmpty);
+  });
+
+  testWidgets('all dues search empty state can be cleared', (
+    WidgetTester tester,
+  ) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'June 2026',
+        dues: [
+          Due(
+            id: 4,
+            name: 'Phone',
+            price: 8000,
+            paid: false,
+            dayOfMonth: 20,
+            dueDate: '2026-06-20',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: AllDuesShowcasePage()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('all_dues_search_field')),
+      'zzz',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No due groups match your current filters.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('all_dues_clear_filters')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Phone'), findsOneWidget);
   });
 }

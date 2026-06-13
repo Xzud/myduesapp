@@ -1,10 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/filter_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 
@@ -16,6 +20,10 @@ class MockUpdateDue extends Mock implements UpdateDue {}
 
 class MockDeleteDue extends Mock implements DeleteDue {}
 
+class MockGetDueFilterState extends Mock implements GetDueFilterState {}
+
+class MockSetDueFilterState extends Mock implements SetDueFilterState {}
+
 class MockSyncDueReminders extends Mock implements SyncDueReminders {}
 
 void main() {
@@ -23,6 +31,7 @@ void main() {
     registerFallbackValue(
       const DueEntity(id: 0, name: '', amount: 0, dayOfMonth: 1),
     );
+    registerFallbackValue(const DueFilterState());
   });
 
   late DueController controller;
@@ -30,17 +39,30 @@ void main() {
   late MockSetDuePaid mockSetDuePaid;
   late MockUpdateDue mockUpdateDue;
   late MockDeleteDue mockDeleteDue;
+  late MockGetDueFilterState mockGetDueFilterState;
+  late MockSetDueFilterState mockSetDueFilterState;
   late MockSyncDueReminders mockSyncDueReminders;
+  late FilterDues filterDues;
 
   setUp(() {
     mockGetAllDues = MockGetAllDues();
     mockSetDuePaid = MockSetDuePaid();
     mockUpdateDue = MockUpdateDue();
     mockDeleteDue = MockDeleteDue();
+    mockGetDueFilterState = MockGetDueFilterState();
+    mockSetDueFilterState = MockSetDueFilterState();
     mockSyncDueReminders = MockSyncDueReminders();
+    filterDues = FilterDues();
+    when(
+      () => mockGetDueFilterState.call(),
+    ).thenAnswer((_) async => const DueFilterState());
+    when(() => mockSetDueFilterState.call(any())).thenAnswer((_) async {});
     when(() => mockSyncDueReminders.call()).thenAnswer((_) async {});
     controller = DueController(
       getAllDues: mockGetAllDues,
+      getDueFilterState: mockGetDueFilterState,
+      setDueFilterState: mockSetDueFilterState,
+      filterDues: filterDues,
       setDuePaid: mockSetDuePaid,
       updateDue: mockUpdateDue,
       deleteDue: mockDeleteDue,
@@ -68,6 +90,62 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues, hasLength(1));
     verify(() => mockGetAllDues()).called(1);
+    verify(() => mockGetDueFilterState.call()).called(1);
+  });
+
+  test('should load saved filter state only once', () async {
+    when(() => mockGetDueFilterState.call()).thenAnswer(
+      (_) async => const DueFilterState(status: DueStatusFilter.unpaid),
+    );
+    when(() => mockGetAllDues()).thenAnswer((_) async => []);
+
+    await controller.fetchDues();
+    await controller.fetchDues();
+
+    expect(controller.filterState.status, DueStatusFilter.unpaid);
+    verify(() => mockGetDueFilterState.call()).called(1);
+  });
+
+  test('should filter dues by search query', () async {
+    when(() => mockGetAllDues()).thenAnswer(
+      (_) async => [
+        MonthlyDue(
+          month: 'May 2026',
+          dues: [
+            Due(
+              id: 1,
+              name: 'Internet',
+              price: 100,
+              paid: false,
+              dayOfMonth: 5,
+            ),
+            Due(id: 2, name: 'Phone', price: 80, paid: false, dayOfMonth: 6),
+          ],
+        ),
+      ],
+    );
+
+    await controller.fetchDues();
+    controller.updateSearchQuery('phone');
+
+    expect(controller.filteredDues, hasLength(1));
+    expect(controller.filteredDues.single.dues.map((due) => due.name), [
+      'Phone',
+    ]);
+  });
+
+  test('should persist filter state updates', () async {
+    when(() => mockGetAllDues()).thenAnswer((_) async => []);
+
+    await controller.fetchDues();
+    await controller.updateTypeFilter(DueTypeFilter.recurring);
+
+    expect(controller.filterState.type, DueTypeFilter.recurring);
+    verify(
+      () => mockSetDueFilterState.call(
+        const DueFilterState(type: DueTypeFilter.recurring),
+      ),
+    ).called(1);
   });
 
   test('should toggle paid without reloading dues', () async {

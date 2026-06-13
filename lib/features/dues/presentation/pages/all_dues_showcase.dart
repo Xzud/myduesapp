@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart'
     show Due, MonthlyDue;
+import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
+import 'package:myduesapp/features/dues/presentation/widgets/due_filter_bar.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/formatters.dart';
 import 'package:myduesapp/injection_container.dart';
 
@@ -18,12 +20,19 @@ class AllDuesShowcasePage extends StatefulWidget {
 
 class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
   late final DueController controller;
+  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     controller = sl<DueController>();
     controller.fetchDues();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   List<Due> _flattenDues(List<MonthlyDue> months) {
@@ -156,11 +165,13 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
+                      key: const Key('edit_due_name_field'),
                       controller: nameCtrl,
                       decoration: const InputDecoration(labelText: 'Name'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
+                      key: const Key('edit_due_amount_field'),
                       controller: amountCtrl,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -215,9 +226,6 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
         );
       },
     );
-
-    nameCtrl.dispose();
-    amountCtrl.dispose();
 
     if (!mounted || updated == null) return;
     await controller.updateDueItem(updated);
@@ -392,6 +400,73 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    controller.updateSearchQuery('');
+  }
+
+  Future<void> _clearFilters() async {
+    _searchCtrl.clear();
+    await controller.clearFilters();
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateQuickView(DueQuickView value) async {
+    await controller.updateQuickView(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateStatus(DueStatusFilter value) async {
+    await controller.updateStatusFilter(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateType(DueTypeFilter value) async {
+    await controller.updateTypeFilter(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Future<void> _updateMonth(String? value) async {
+    await controller.updateMonthFilter(value);
+    if (!mounted) return;
+    _showErrorIfAny();
+  }
+
+  Widget _buildFilterSection({required bool compactHeight}) {
+    final filterBar = DueFilterBar(
+      scope: 'all_dues',
+      searchController: _searchCtrl,
+      filterState: controller.filterState,
+      availableMonths: controller.availableMonths,
+      enabled: !controller.isLoading,
+      helperMessage:
+          'Filters decide which groups appear. Opening a group still shows its full payable segmentation.',
+      onSearchChanged: controller.updateSearchQuery,
+      onClearSearch: _clearSearch,
+      onClearFilters: _clearFilters,
+      onQuickViewChanged: _updateQuickView,
+      onStatusChanged: _updateStatus,
+      onTypeChanged: _updateType,
+      onMonthChanged: _updateMonth,
+    );
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: appWideContentMaxWidth),
+        child: compactHeight
+            ? SizedBox(
+                height: 132,
+                child: SingleChildScrollView(child: filterBar),
+              )
+            : filterBar,
+      ),
+    );
   }
 
   Future<void> _openSegmentationSheet({
@@ -595,7 +670,8 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
             );
           }
 
-          final groupedDues = _groupByLoan(allDues);
+          final filteredDues = _flattenDues(controller.filteredDues);
+          final groupedDues = _groupByLoan(filteredDues);
           final groupEntries = groupedDues.entries.toList()
             ..sort((a, b) {
               final ad =
@@ -604,71 +680,100 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                   DateTime.tryParse(b.value.first.dueDate ?? '') ?? DateTime(0);
               return ad.compareTo(bd);
             });
+          final compactHeight =
+              MediaQuery.sizeOf(context).height -
+                  MediaQuery.paddingOf(context).vertical <
+              700;
 
           return RefreshIndicator(
             onRefresh: controller.fetchDues,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: appWideContentMaxWidth,
-                    ),
-                    child: AppSurface(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      side: BorderSide.none,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Grouped dues',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${allDues.length} total due(s) across ${groupedDues.length} group(s). Tap a group to open its full payable segmentation.',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onPrimaryContainer
-                                      .withValues(alpha: 0.78),
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                _buildFilterSection(compactHeight: compactHeight),
                 const SizedBox(height: 16),
-                for (final entry in groupEntries) ...[
+                if (groupEntries.isEmpty)
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
                         maxWidth: appWideContentMaxWidth,
                       ),
-                      child: _DueGroupCard(
-                        dues: entry.value,
-                        title: _loanTitle(entry.value),
-                        paid: _paidCount(entry.value),
-                        total: entry.value.length,
-                        complete: _loanComplete(entry.value),
-                        recurring: _isRecurringGroup(entry.value),
-                        onTap: () => _openSegmentationSheet(
-                          groupKey: entry.key,
-                          title: _loanTitle(entry.value),
+                      child: AppEmptyState(
+                        icon: Icons.filter_alt_off_rounded,
+                        title: 'No due groups match your current filters.',
+                        message:
+                            'Try adjusting the search, quick view, or filters.',
+                        action: FilledButton.icon(
+                          onPressed: _clearFilters,
+                          icon: const Icon(Icons.filter_alt_off_rounded),
+                          label: const Text('Clear filters'),
+                        ),
+                      ),
+                    ),
+                  )
+                else ...[
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: appWideContentMaxWidth,
+                      ),
+                      child: AppSurface(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        side: BorderSide.none,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Grouped dues',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              controller.hasActiveFilters
+                                  ? '${filteredDues.length} matching due(s) across ${groupedDues.length} group(s). Tap a group to open its full payable segmentation.'
+                                  : '${allDues.length} total due(s) across ${groupedDues.length} group(s). Tap a group to open its full payable segmentation.',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onPrimaryContainer
+                                        .withValues(alpha: 0.78),
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+                  for (final entry in groupEntries) ...[
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: appWideContentMaxWidth,
+                        ),
+                        child: _DueGroupCard(
+                          dues: entry.value,
+                          title: _loanTitle(entry.value),
+                          paid: _paidCount(entry.value),
+                          total: entry.value.length,
+                          complete: _loanComplete(entry.value),
+                          recurring: _isRecurringGroup(entry.value),
+                          onTap: () => _openSegmentationSheet(
+                            groupKey: entry.key,
+                            title: _loanTitle(entry.value),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ],
               ],
             ),

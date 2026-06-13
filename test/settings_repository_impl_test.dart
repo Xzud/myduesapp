@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_filter_state.dart';
 import 'package:myduesapp/features/dues/infrastructure/datasources/settings_datasource.dart';
 import 'package:myduesapp/features/dues/infrastructure/models/settings_model.dart';
 import 'package:myduesapp/features/dues/infrastructure/repositories/settings_repository_impl.dart';
@@ -86,5 +87,34 @@ void main() {
 
     verify(() => datasource.setSettings('reminders_enabled', true)).called(1);
     verify(() => datasource.setSettings('reminder_offset_days', 7)).called(1);
+  });
+
+  test('should default due filter state when unset', () async {
+    when(
+      () => datasource.getSettings('due_filter_state'),
+    ).thenAnswer((_) async => null);
+
+    final result = await repository.getDueFilterState();
+
+    expect(result, const DueFilterState());
+  });
+
+  test('should persist due filter state', () async {
+    when(
+      () => datasource.setSettings('due_filter_state', any()),
+    ).thenAnswer((_) async {});
+
+    const state = DueFilterState(
+      quickView: DueQuickView.upcoming,
+      status: DueStatusFilter.unpaid,
+      type: DueTypeFilter.recurring,
+      month: 'July 2026',
+    );
+
+    await repository.setDueFilterState(state);
+
+    verify(
+      () => datasource.setSettings('due_filter_state', state.toStoredValue()),
+    ).called(1);
   });
 }

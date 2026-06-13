@@ -14,12 +14,15 @@ import 'package:myduesapp/features/dues/application/usecases/create_split_due.da
 import 'package:myduesapp/features/dues/application/usecases/get_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
+import 'package:myduesapp/features/dues/application/usecases/filter_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_reminder_offset_days.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_reminders_enabled.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/request_reminder_permissions.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_due_filter_state.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_reminder_offset_days.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_reminders_enabled.dart';
@@ -57,6 +60,7 @@ Future<void> init() async {
   );
 
   sl.registerLazySingleton<GetAllDues>(() => GetAllDues(repository: sl()));
+  sl.registerLazySingleton<FilterDues>(() => FilterDues());
   sl.registerLazySingleton<GetPaymentDates>(
     () => GetPaymentDates(repository: sl()),
   );
@@ -77,6 +81,12 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<GetReminderOffsetDays>(
     () => GetReminderOffsetDays(repository: sl()),
+  );
+  sl.registerLazySingleton<GetDueFilterState>(
+    () => GetDueFilterState(repository: sl()),
+  );
+  sl.registerLazySingleton<SetDueFilterState>(
+    () => SetDueFilterState(repository: sl()),
   );
   sl.registerLazySingleton<SetReminderOffsetDays>(
     () => SetReminderOffsetDays(repository: sl()),
@@ -111,6 +121,9 @@ Future<void> init() async {
   sl.registerFactory(
     () => DueController(
       getAllDues: sl(),
+      getDueFilterState: sl(),
+      setDueFilterState: sl(),
+      filterDues: sl(),
       setDuePaid: sl(),
       updateDue: sl(),
       deleteDue: sl(),
