@@ -12,6 +12,7 @@ import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
 import 'package:myduesapp/features/dues/domain/entities/dashboard_summary_entity.dart';
+import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
@@ -63,6 +64,7 @@ class _FakeDueController extends DueController {
   final List<List<int>> bulkPaidCalls = [];
   final List<bool> bulkPaidValues = [];
   final List<List<int>> bulkDeleteCalls = [];
+  final List<DueEntity> updatedDueItems = [];
 
   @override
   List<MonthlyDue> get dues => _dues;
@@ -112,6 +114,21 @@ class _FakeDueController extends DueController {
       month.dues.removeWhere((due) => ids.contains(due.id));
     }
     _dues.removeWhere((month) => month.dues.isEmpty);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> updateDueItem(DueEntity due) async {
+    updatedDueItems.add(due);
+    for (final month in _dues) {
+      for (final item in month.dues) {
+        if (item.id == due.id) {
+          item.name = due.name;
+          item.price = due.amount;
+          item.paid = due.paid;
+        }
+      }
+    }
     notifyListeners();
   }
 }
@@ -506,6 +523,48 @@ void main() {
     expect(find.text('2/2'), findsOneWidget);
   });
 
+  testWidgets('overview edit rejects zero amount', (WidgetTester tester) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'May 2026',
+        dues: [
+          Due(
+            id: 1,
+            name: 'Laptop',
+            price: 12000,
+            paid: false,
+            dayOfMonth: 5,
+            dueDate: '2026-05-05',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: DuesPage()));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(1), '0');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit due'), findsOneWidget);
+    expect(
+      find.text('Enter a valid name and amount greater than zero.'),
+      findsOneWidget,
+    );
+    expect(controller.updatedDueItems, isEmpty);
+  });
+
   testWidgets('all dues groups recurring payments and ends unpaid schedule', (
     WidgetTester tester,
   ) async {
@@ -598,5 +657,52 @@ void main() {
         .map((due) => due.id)
         .toList();
     expect(remainingIds, [4, 3]);
+  });
+
+  testWidgets('all dues edit rejects negative amount', (
+    WidgetTester tester,
+  ) async {
+    final controller = _FakeDueController([
+      MonthlyDue(
+        month: 'June 2026',
+        dues: [
+          Due(
+            id: 4,
+            name: 'Phone',
+            price: 8000,
+            paid: false,
+            dayOfMonth: 20,
+            dueDate: '2026-06-20',
+          ),
+        ],
+      ),
+    ]);
+
+    if (sl.isRegistered<DueController>()) {
+      sl.unregister<DueController>();
+    }
+    sl.registerSingleton<DueController>(controller);
+
+    await tester.pumpWidget(const MaterialApp(home: AllDuesShowcasePage()));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('Phone'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(1), '-10');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit due'), findsOneWidget);
+    expect(
+      find.text('Enter a valid name and amount greater than zero.'),
+      findsOneWidget,
+    );
+    expect(controller.updatedDueItems, isEmpty);
   });
 }

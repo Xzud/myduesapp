@@ -186,10 +186,12 @@ class _AllDuesShowcasePageState extends State<AllDuesShowcasePage> {
                   onPressed: () {
                     final name = nameCtrl.text.trim();
                     final amount = double.tryParse(amountCtrl.text.trim());
-                    if (name.isEmpty || amount == null) {
+                    if (name.isEmpty || amount == null || amount <= 0) {
                       ScaffoldMessenger.of(dialogContext).showSnackBar(
                         const SnackBar(
-                          content: Text('Enter a valid name and amount.'),
+                          content: Text(
+                            'Enter a valid name and amount greater than zero.',
+                          ),
                         ),
                       );
                       return;

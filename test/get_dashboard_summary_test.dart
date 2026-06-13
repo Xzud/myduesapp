@@ -22,26 +22,40 @@ void main() {
           id: 1,
           name: 'Electricity',
           amount: 50,
-          paid: false,
+          paid: true,
           complete: false,
           recurring: false,
           dayOfMonth: 15,
+          loanId: 'loan_1',
           dueDate: '2023-09-15T10:00:00',
           createdAt: '2023-09-10T10:00:00',
         ),
         const DueEntity(
           id: 2,
-          name: 'Internet',
+          name: 'Electricity',
           amount: 60,
           paid: true,
           complete: false,
-          recurring: true,
+          recurring: false,
           dayOfMonth: 20,
+          loanId: 'loan_1',
           dueDate: '2023-09-20T10:00:00',
           createdAt: '2023-09-12T10:00:00',
         ),
         const DueEntity(
           id: 3,
+          name: 'Internet',
+          amount: 30,
+          paid: true,
+          complete: false,
+          recurring: true,
+          dayOfMonth: 25,
+          loanId: 'recurring_1',
+          dueDate: '2023-09-25T10:00:00',
+          createdAt: '2023-09-25T08:00:00',
+        ),
+        const DueEntity(
+          id: 4,
           name: 'Rent',
           amount: 100,
           paid: false,
@@ -52,13 +66,14 @@ void main() {
           createdAt: '2023-10-01T08:00:00',
         ),
         const DueEntity(
-          id: 4,
+          id: 5,
           name: 'Groceries',
           amount: 75,
-          paid: false,
-          complete: true,
+          paid: true,
+          complete: false,
           recurring: false,
           dayOfMonth: 5,
+          dueDate: '2023-10-05T10:00:00',
           createdAt: '2023-10-05T08:00:00',
         ),
       ],
@@ -68,43 +83,73 @@ void main() {
       referenceDate: DateTime(2023, 10, 15),
     );
 
-    expect(result.totalCount, 4);
-    expect(result.paidCount, 1);
-    expect(result.unpaidCount, 2);
-    expect(result.overdueCount, 2);
+    expect(result.totalCount, 5);
+    expect(result.paidCount, 4);
+    expect(result.unpaidCount, 1);
+    expect(result.overdueCount, 1);
     expect(result.dueTodayCount, 0);
     expect(result.upcomingCount, 0);
     expect(result.recurringCount, 1);
-    expect(result.oneTimeCount, 3);
-    expect(result.completeCount, 1);
-    expect(result.totalAmount, 285);
-    expect(result.paidAmount, 60);
-    expect(result.unpaidAmount, 150);
-    expect(result.overdueAmount, 150);
+    expect(result.oneTimeCount, 4);
+    expect(result.completeCount, 2);
+    expect(result.totalAmount, 315);
+    expect(result.paidAmount, 215);
+    expect(result.unpaidAmount, 100);
+    expect(result.overdueAmount, 100);
 
     expect(result.monthlySummaries, hasLength(2));
 
     final september = result.monthlySummaries.firstWhere(
       (summary) => summary.month == 'September 2023',
     );
-    expect(september.totalCount, 2);
-    expect(september.paidCount, 1);
-    expect(september.unpaidCount, 1);
-    expect(september.overdueCount, 1);
-    expect(september.totalAmount, 110);
-    expect(september.paidAmount, 60);
-    expect(september.unpaidAmount, 50);
+    expect(september.totalCount, 3);
+    expect(september.paidCount, 3);
+    expect(september.unpaidCount, 0);
+    expect(september.overdueCount, 0);
+    expect(september.totalAmount, 140);
+    expect(september.paidAmount, 140);
+    expect(september.unpaidAmount, 0);
 
     final october = result.monthlySummaries.firstWhere(
       (summary) => summary.month == 'October 2023',
     );
     expect(october.totalCount, 2);
-    expect(october.paidCount, 0);
+    expect(october.paidCount, 1);
     expect(october.unpaidCount, 1);
     expect(october.overdueCount, 1);
     expect(october.totalAmount, 175);
-    expect(october.paidAmount, 0);
+    expect(october.paidAmount, 75);
     expect(october.unpaidAmount, 100);
+
+    verify(() => mockRepository.getDues()).called(1);
+  });
+
+  test('should ignore legacy complete flags when deriving dashboard status', () async {
+    when(() => mockRepository.getDues()).thenAnswer(
+      (_) async => [
+        const DueEntity(
+          id: 1,
+          name: 'Legacy',
+          amount: 80,
+          paid: false,
+          complete: true,
+          recurring: false,
+          dayOfMonth: 10,
+          dueDate: '2023-10-10T10:00:00',
+          createdAt: '2023-10-01T08:00:00',
+        ),
+      ],
+    );
+
+    final result = await getDashboardSummary(
+      referenceDate: DateTime(2023, 10, 15),
+    );
+
+    expect(result.completeCount, 0);
+    expect(result.paidCount, 0);
+    expect(result.unpaidCount, 1);
+    expect(result.overdueCount, 1);
+    expect(result.overdueAmount, 80);
 
     verify(() => mockRepository.getDues()).called(1);
   });

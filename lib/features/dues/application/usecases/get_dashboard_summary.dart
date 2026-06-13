@@ -16,6 +16,7 @@ class GetDashboardSummary {
     final anchor = referenceDate ?? DateTime.now();
     final today = DateTime(anchor.year, anchor.month, anchor.day);
     final monthlyMap = <String, _MonthlyAccumulator>{};
+    final completeCount = _countCompleteGroups(dues);
 
     var totalCount = 0;
     var paidCount = 0;
@@ -25,7 +26,6 @@ class GetDashboardSummary {
     var upcomingCount = 0;
     var recurringCount = 0;
     var oneTimeCount = 0;
-    var completeCount = 0;
     var totalAmount = 0.0;
     var paidAmount = 0.0;
     var unpaidAmount = 0.0;
@@ -36,8 +36,7 @@ class GetDashboardSummary {
       totalAmount += due.amount;
 
       final isPaid = due.paid;
-      final isComplete = due.complete;
-      final isSettled = isPaid || isComplete;
+      final isSettled = isPaid;
       final effectiveDate = _effectiveDate(due, anchor);
       final dueDate = _parseDate(due.dueDate);
       final monthKey = _monthYear(effectiveDate);
@@ -64,10 +63,6 @@ class GetDashboardSummary {
       if (!isSettled) {
         unpaidCount += 1;
         unpaidAmount += due.amount;
-      }
-
-      if (isComplete) {
-        completeCount += 1;
       }
 
       if (due.recurring) {
@@ -121,6 +116,45 @@ class GetDashboardSummary {
           )
           .toList(),
     );
+  }
+
+  int _countCompleteGroups(List<DueEntity> dues) {
+    final groups = <String, List<DueEntity>>{};
+
+    for (var i = 0; i < dues.length; i++) {
+      final due = dues[i];
+      final key = _groupKey(due, i);
+      groups.putIfAbsent(key, () => []).add(due);
+    }
+
+    var count = 0;
+    for (final group in groups.values) {
+      if (group.isEmpty) {
+        continue;
+      }
+      if (group.any((due) => due.recurring)) {
+        continue;
+      }
+      if (group.every((due) => due.paid)) {
+        count += 1;
+      }
+    }
+
+    return count;
+  }
+
+  String _groupKey(DueEntity due, int index) {
+    final groupId = due.loanId?.trim();
+    if (groupId != null && groupId.isNotEmpty) {
+      return 'group:$groupId';
+    }
+
+    final id = due.id;
+    if (id != null) {
+      return 'single:$id';
+    }
+
+    return 'single:fallback:$index';
   }
 
   DateTime _effectiveDate(DueEntity due, DateTime fallback) {
