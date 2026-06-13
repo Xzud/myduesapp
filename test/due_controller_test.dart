@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
@@ -14,6 +15,8 @@ class MockSetDuePaid extends Mock implements SetDuePaid {}
 class MockUpdateDue extends Mock implements UpdateDue {}
 
 class MockDeleteDue extends Mock implements DeleteDue {}
+
+class MockSyncDueReminders extends Mock implements SyncDueReminders {}
 
 void main() {
   setUpAll(() {
@@ -27,17 +30,21 @@ void main() {
   late MockSetDuePaid mockSetDuePaid;
   late MockUpdateDue mockUpdateDue;
   late MockDeleteDue mockDeleteDue;
+  late MockSyncDueReminders mockSyncDueReminders;
 
   setUp(() {
     mockGetAllDues = MockGetAllDues();
     mockSetDuePaid = MockSetDuePaid();
     mockUpdateDue = MockUpdateDue();
     mockDeleteDue = MockDeleteDue();
+    mockSyncDueReminders = MockSyncDueReminders();
+    when(() => mockSyncDueReminders.call()).thenAnswer((_) async {});
     controller = DueController(
       getAllDues: mockGetAllDues,
       setDuePaid: mockSetDuePaid,
       updateDue: mockUpdateDue,
       deleteDue: mockDeleteDue,
+      syncDueReminders: mockSyncDueReminders,
     );
   });
 
@@ -82,6 +89,7 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues.first.dues.first.paid, true);
     verify(() => mockSetDuePaid.call(1, true)).called(1);
+    verify(() => mockSyncDueReminders.call()).called(1);
     verify(() => mockGetAllDues()).called(1);
   });
 
@@ -119,6 +127,7 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues.first.dues.first.name, 'Loan A Updated');
     verify(() => mockUpdateDue.call(any())).called(1);
+    verify(() => mockSyncDueReminders.call()).called(1);
   });
 
   test('should delete due and refresh dues', () async {
@@ -150,6 +159,7 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.dues, isEmpty);
     verify(() => mockDeleteDue.call(1)).called(1);
+    verify(() => mockSyncDueReminders.call()).called(1);
   });
 
   test('should delete multiple dues and refresh once', () async {
@@ -189,6 +199,7 @@ void main() {
     expect(controller.dues, isEmpty);
     verify(() => mockDeleteDue.call(1)).called(1);
     verify(() => mockDeleteDue.call(2)).called(1);
+    verify(() => mockSyncDueReminders.call()).called(1);
   });
 
   test('should mark multiple dues paid and refresh once', () async {
@@ -226,6 +237,7 @@ void main() {
     expect(controller.dues.first.dues.every((due) => due.paid), true);
     verify(() => mockSetDuePaid.call(1, true)).called(1);
     verify(() => mockSetDuePaid.call(2, true)).called(1);
+    verify(() => mockSyncDueReminders.call()).called(1);
     verify(() => mockGetAllDues()).called(2);
   });
 }

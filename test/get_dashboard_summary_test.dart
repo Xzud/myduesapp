@@ -124,35 +124,38 @@ void main() {
     verify(() => mockRepository.getDues()).called(1);
   });
 
-  test('should ignore legacy complete flags when deriving dashboard status', () async {
-    when(() => mockRepository.getDues()).thenAnswer(
-      (_) async => [
-        const DueEntity(
-          id: 1,
-          name: 'Legacy',
-          amount: 80,
-          paid: false,
-          complete: true,
-          recurring: false,
-          dayOfMonth: 10,
-          dueDate: '2023-10-10T10:00:00',
-          createdAt: '2023-10-01T08:00:00',
-        ),
-      ],
-    );
+  test(
+    'should ignore legacy complete flags when deriving dashboard status',
+    () async {
+      when(() => mockRepository.getDues()).thenAnswer(
+        (_) async => [
+          const DueEntity(
+            id: 1,
+            name: 'Legacy',
+            amount: 80,
+            paid: false,
+            complete: true,
+            recurring: false,
+            dayOfMonth: 10,
+            dueDate: '2023-10-10T10:00:00',
+            createdAt: '2023-10-01T08:00:00',
+          ),
+        ],
+      );
 
-    final result = await getDashboardSummary(
-      referenceDate: DateTime(2023, 10, 15),
-    );
+      final result = await getDashboardSummary(
+        referenceDate: DateTime(2023, 10, 15),
+      );
 
-    expect(result.completeCount, 0);
-    expect(result.paidCount, 0);
-    expect(result.unpaidCount, 1);
-    expect(result.overdueCount, 1);
-    expect(result.overdueAmount, 80);
+      expect(result.completeCount, 0);
+      expect(result.paidCount, 0);
+      expect(result.unpaidCount, 1);
+      expect(result.overdueCount, 1);
+      expect(result.overdueAmount, 80);
 
-    verify(() => mockRepository.getDues()).called(1);
-  });
+      verify(() => mockRepository.getDues()).called(1);
+    },
+  );
 
   test('should return empty dashboard summary when no dues exist', () async {
     when(() => mockRepository.getDues()).thenAnswer((_) async => []);

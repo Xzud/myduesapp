@@ -1,6 +1,8 @@
 import 'package:get_it/get_it.dart' show GetIt;
 import 'package:myduesapp/core/database/database_helper.dart'
     show DatabaseHelper;
+import 'package:myduesapp/core/notifications/flutter_local_notification_service.dart';
+import 'package:myduesapp/core/notifications/notification_service.dart';
 import 'package:myduesapp/features/dues/infrastructure/datasources/due_datasource.dart';
 import 'package:myduesapp/features/dues/infrastructure/datasources/settings_datasource.dart';
 import 'package:myduesapp/features/dues/domain/repositories/due_repository.dart';
@@ -13,11 +15,17 @@ import 'package:myduesapp/features/dues/application/usecases/get_default_billing
 import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summary.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_reminder_offset_days.dart';
+import 'package:myduesapp/features/dues/application/usecases/get_reminders_enabled.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/request_reminder_permissions.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_reminder_offset_days.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_default_billing_period_mode.dart';
+import 'package:myduesapp/features/dues/application/usecases/set_reminders_enabled.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/dashboard_controller.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_controller.dart';
@@ -44,6 +52,9 @@ Future<void> init() async {
   sl.registerLazySingleton<SettingsRepository>(
     () => SettingsRepositoryImpl(datasource: sl()),
   );
+  sl.registerLazySingleton<NotificationService>(
+    () => FlutterLocalNotificationService(),
+  );
 
   sl.registerLazySingleton<GetAllDues>(() => GetAllDues(repository: sl()));
   sl.registerLazySingleton<GetPaymentDates>(
@@ -58,6 +69,21 @@ Future<void> init() async {
   sl.registerLazySingleton<SetDefaultBillingPeriodMode>(
     () => SetDefaultBillingPeriodMode(repository: sl()),
   );
+  sl.registerLazySingleton<GetRemindersEnabled>(
+    () => GetRemindersEnabled(repository: sl()),
+  );
+  sl.registerLazySingleton<SetRemindersEnabled>(
+    () => SetRemindersEnabled(repository: sl()),
+  );
+  sl.registerLazySingleton<GetReminderOffsetDays>(
+    () => GetReminderOffsetDays(repository: sl()),
+  );
+  sl.registerLazySingleton<SetReminderOffsetDays>(
+    () => SetReminderOffsetDays(repository: sl()),
+  );
+  sl.registerLazySingleton<RequestReminderPermissions>(
+    () => RequestReminderPermissions(notificationService: sl()),
+  );
   sl.registerLazySingleton<CreateSplitDue>(
     () => CreateSplitDue(repository: sl()),
   );
@@ -70,6 +96,13 @@ Future<void> init() async {
   sl.registerLazySingleton<SetDuePaid>(() => SetDuePaid(repository: sl()));
   sl.registerLazySingleton<UpdateDue>(() => UpdateDue(repository: sl()));
   sl.registerLazySingleton<DeleteDue>(() => DeleteDue(repository: sl()));
+  sl.registerLazySingleton<SyncDueReminders>(
+    () => SyncDueReminders(
+      dueRepository: sl(),
+      settingsRepository: sl(),
+      notificationService: sl(),
+    ),
+  );
   sl.registerLazySingleton<ResetAllData>(
     () => ResetAllData(dueRepository: sl(), settingsRepository: sl()),
   );
@@ -81,6 +114,7 @@ Future<void> init() async {
       setDuePaid: sl(),
       updateDue: sl(),
       deleteDue: sl(),
+      syncDueReminders: sl(),
     ),
   );
   sl.registerFactory(
@@ -88,6 +122,7 @@ Future<void> init() async {
       getPaymentDates: sl(),
       createSplitDue: sl(),
       createRecurringDue: sl(),
+      syncDueReminders: sl(),
       getDefaultBillingPeriodMode: sl(),
     ),
   );
@@ -97,6 +132,12 @@ Future<void> init() async {
       setPaymentDates: sl(),
       getDefaultBillingPeriodMode: sl(),
       setDefaultBillingPeriodMode: sl(),
+      getRemindersEnabled: sl(),
+      setRemindersEnabled: sl(),
+      getReminderOffsetDays: sl(),
+      setReminderOffsetDays: sl(),
+      requestReminderPermissions: sl(),
+      syncDueReminders: sl(),
       resetAllData: sl(),
     ),
   );

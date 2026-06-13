@@ -52,4 +52,39 @@ void main() {
       () => datasource.setSettings('default_billing_period_mode', 'multiple'),
     ).called(1);
   });
+
+  test('should default reminders to disabled when unset', () async {
+    when(
+      () => datasource.getSettings('reminders_enabled'),
+    ).thenAnswer((_) async => null);
+
+    final result = await repository.getRemindersEnabled();
+
+    expect(result, false);
+  });
+
+  test('should read stored reminder offset days', () async {
+    when(() => datasource.getSettings('reminder_offset_days')).thenAnswer(
+      (_) async => SettingsModel.create(key: 'reminder_offset_days', value: 3),
+    );
+
+    final result = await repository.getReminderOffsetDays();
+
+    expect(result, 3);
+  });
+
+  test('should persist reminder settings', () async {
+    when(
+      () => datasource.setSettings('reminders_enabled', true),
+    ).thenAnswer((_) async {});
+    when(
+      () => datasource.setSettings('reminder_offset_days', 7),
+    ).thenAnswer((_) async {});
+
+    await repository.setRemindersEnabled(true);
+    await repository.setReminderOffsetDays(7);
+
+    verify(() => datasource.setSettings('reminders_enabled', true)).called(1);
+    verify(() => datasource.setSettings('reminder_offset_days', 7)).called(1);
+  });
 }

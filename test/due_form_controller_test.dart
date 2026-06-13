@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_recurring_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/due_form_controller.dart';
 
@@ -12,20 +13,26 @@ class MockCreateRecurringDue extends Mock implements CreateRecurringDue {}
 
 class MockGetPaymentDates extends Mock implements GetPaymentDates {}
 
+class MockSyncDueReminders extends Mock implements SyncDueReminders {}
+
 void main() {
   late DueFormController controller;
   late MockCreateSplitDue mockCreateSplitDue;
   late MockCreateRecurringDue mockCreateRecurringDue;
   late MockGetPaymentDates mockGetPaymentDates;
+  late MockSyncDueReminders mockSyncDueReminders;
 
   setUp(() {
     mockCreateSplitDue = MockCreateSplitDue();
     mockCreateRecurringDue = MockCreateRecurringDue();
     mockGetPaymentDates = MockGetPaymentDates();
+    mockSyncDueReminders = MockSyncDueReminders();
+    when(() => mockSyncDueReminders.call()).thenAnswer((_) async {});
     controller = DueFormController(
       getPaymentDates: mockGetPaymentDates,
       createSplitDue: mockCreateSplitDue,
       createRecurringDue: mockCreateRecurringDue,
+      syncDueReminders: mockSyncDueReminders,
     );
   });
 
@@ -56,6 +63,7 @@ void main() {
     expect(controller.errorMessage, isNull);
     expect(controller.isLoading, false);
     verify(() => mockGetPaymentDates()).called(1);
+    verify(() => mockSyncDueReminders.call()).called(1);
     verify(
       () => mockCreateSplitDue(
         name: 'Loan A',
@@ -90,6 +98,7 @@ void main() {
 
     expect(controller.errorMessage, isNull);
     expect(controller.isLoading, false);
+    verify(() => mockSyncDueReminders.call()).called(1);
     verify(
       () => mockCreateSplitDue(
         name: 'Loan A',
@@ -127,6 +136,7 @@ void main() {
       interestPlan: interestPlan,
     );
 
+    verify(() => mockSyncDueReminders.call()).called(1);
     verify(
       () => mockCreateSplitDue(
         name: 'Loan A',
@@ -186,6 +196,7 @@ void main() {
 
     expect(controller.errorMessage, isNull);
     expect(controller.isLoading, false);
+    verify(() => mockSyncDueReminders.call()).called(1);
     verify(
       () => mockCreateRecurringDue(
         name: 'Internet',

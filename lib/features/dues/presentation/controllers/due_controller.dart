@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:myduesapp/features/dues/application/usecases/delete_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_all_dues.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
 
@@ -10,12 +11,14 @@ class DueController extends ChangeNotifier {
   final SetDuePaid setDuePaid;
   final UpdateDue updateDue;
   final DeleteDue deleteDue;
+  final SyncDueReminders syncDueReminders;
 
   DueController({
     required this.getAllDues,
     required this.setDuePaid,
     required this.updateDue,
     required this.deleteDue,
+    required this.syncDueReminders,
   });
 
   List<MonthlyDue> _dues = [];
@@ -49,6 +52,7 @@ class DueController extends ChangeNotifier {
     try {
       await setDuePaid.call(dueId, paid);
       _setPaidLocally(dueId, paid);
+      await syncDueReminders.call();
     } catch (e) {
       _errorMessage = e.toString();
       if (kDebugMode) {
@@ -109,6 +113,7 @@ class DueController extends ChangeNotifier {
 
     try {
       await action();
+      await syncDueReminders.call();
     } catch (e) {
       _errorMessage = e.toString();
       if (kDebugMode) {

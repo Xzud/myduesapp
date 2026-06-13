@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
+import 'package:myduesapp/features/dues/domain/entities/reminder_settings.dart';
 import 'package:myduesapp/features/dues/presentation/controllers/settings_controller.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_scaffold.dart';
 import 'package:myduesapp/features/dues/presentation/widgets/app_ui.dart';
@@ -28,6 +29,32 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     dayCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _updateRemindersEnabled(bool enabled) async {
+    await controller.updateRemindersEnabled(enabled);
+    if (!mounted || controller.errorMessage == null) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(controller.errorMessage!)));
+  }
+
+  Future<void> _updateReminderOffsetDays(int? days) async {
+    if (days == null) {
+      return;
+    }
+
+    await controller.updateReminderOffsetDays(days);
+    if (!mounted || controller.errorMessage == null) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(controller.errorMessage!)));
   }
 
   Future<void> _addDay() async {
@@ -225,6 +252,52 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               const SizedBox(height: 20),
+              AppSectionHeader(
+                title: 'Reminders',
+                subtitle:
+                    'Send one local reminder at 9:00 AM before an unpaid due date.',
+              ),
+              const SizedBox(height: 12),
+              AppSurface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: controller.remindersEnabled,
+                      onChanged: controller.isLoading
+                          ? null
+                          : _updateRemindersEnabled,
+                      title: const Text('Enable reminders'),
+                      subtitle: const Text(
+                        'Notifications are scheduled for future unpaid dues only.',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      key: ValueKey(controller.reminderOffsetDays),
+                      initialValue: controller.reminderOffsetDays,
+                      decoration: const InputDecoration(
+                        labelText: 'Remind me',
+                        prefixIcon: Icon(Icons.notifications_active_rounded),
+                      ),
+                      items: [
+                        for (final days in reminderOffsetDayOptions)
+                          DropdownMenuItem(
+                            value: days,
+                            child: Text(_reminderLeadTimeLabel(days)),
+                          ),
+                      ],
+                      onChanged: controller.isLoading
+                          ? null
+                          : controller.remindersEnabled
+                          ? _updateReminderOffsetDays
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
               AppSurface(
                 side: BorderSide(color: theme.colorScheme.errorContainer),
                 child: Column(
@@ -265,6 +338,16 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+}
+
+String _reminderLeadTimeLabel(int days) {
+  if (days == 0) {
+    return 'Same day';
+  }
+  if (days == 1) {
+    return '1 day before';
+  }
+  return '$days days before';
 }
 
 class _SettingsInputRow extends StatelessWidget {

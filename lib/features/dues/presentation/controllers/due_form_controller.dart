@@ -3,6 +3,7 @@ import 'package:myduesapp/features/dues/application/usecases/create_recurring_du
 import 'package:myduesapp/features/dues/application/usecases/create_split_due.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_default_billing_period_mode.dart';
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/domain/entities/billing_period_mode.dart';
 import 'package:myduesapp/features/dues/domain/entities/interest_plan.dart';
 
@@ -27,6 +28,7 @@ class DueFormController extends ChangeNotifier {
   final CreateSplitDue createSplitDue;
   final CreateRecurringDue createRecurringDue;
   final GetDefaultBillingPeriodMode? getDefaultBillingPeriodMode;
+  final SyncDueReminders syncDueReminders;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -38,6 +40,7 @@ class DueFormController extends ChangeNotifier {
     required this.getPaymentDates,
     required this.createSplitDue,
     required this.createRecurringDue,
+    required this.syncDueReminders,
     this.getDefaultBillingPeriodMode,
   });
 
@@ -90,6 +93,7 @@ class DueFormController extends ChangeNotifier {
         startDate: startDate,
         interestPlan: interestPlan,
       );
+      await syncDueReminders.call();
     } catch (e) {
       _errorMessage = e.toString();
       if (kDebugMode) {
@@ -168,6 +172,7 @@ class DueFormController extends ChangeNotifier {
         startDate: startDate,
         interestPlan: interestPlan,
       );
+      await syncDueReminders.call();
     } catch (e) {
       _errorMessage = e.toString();
       if (kDebugMode) {
@@ -202,6 +207,7 @@ class DueFormController extends ChangeNotifier {
         occurrenceCount: occurrenceCount,
         startDate: startDate,
       );
+      await syncDueReminders.call();
     } catch (e) {
       _errorMessage = e.toString();
       if (kDebugMode) {

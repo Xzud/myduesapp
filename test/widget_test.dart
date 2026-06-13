@@ -10,6 +10,7 @@ import 'package:myduesapp/features/dues/application/usecases/get_dashboard_summa
 import 'package:myduesapp/features/dues/application/usecases/get_payment_dates.dart';
 import 'package:myduesapp/features/dues/application/usecases/reset_all_data.dart';
 import 'package:myduesapp/features/dues/application/usecases/set_due_paid.dart';
+import 'package:myduesapp/features/dues/application/usecases/sync_due_reminders.dart';
 import 'package:myduesapp/features/dues/application/usecases/update_due.dart';
 import 'package:myduesapp/features/dues/domain/entities/dashboard_summary_entity.dart';
 import 'package:myduesapp/features/dues/domain/entities/due_entity.dart';
@@ -38,12 +39,15 @@ class _MockUpdateDue extends Mock implements UpdateDue {}
 
 class _MockDeleteDue extends Mock implements DeleteDue {}
 
+class _MockSyncDueReminders extends Mock implements SyncDueReminders {}
+
 class _FakeDueFormController extends DueFormController {
   _FakeDueFormController()
     : super(
         getPaymentDates: _MockGetPaymentDates(),
         createSplitDue: _MockCreateSplitDue(),
         createRecurringDue: _MockCreateRecurringDue(),
+        syncDueReminders: _MockSyncDueReminders(),
       );
 
   @override
@@ -57,6 +61,7 @@ class _FakeDueController extends DueController {
         setDuePaid: _MockSetDuePaid(),
         updateDue: _MockUpdateDue(),
         deleteDue: _MockDeleteDue(),
+        syncDueReminders: _MockSyncDueReminders(),
       );
 
   final List<MonthlyDue> _dues;
